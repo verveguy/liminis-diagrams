@@ -90,6 +90,10 @@ A maintainer publishes a GitHub Release. That act, and only that act, sets `LIMI
 - **FR-017**: A step derives the dist-tag from the version: `latest` for a plain version, a non-`latest` tag for anything carrying a prerelease suffix.
 - **FR-018**: The job uses the same Node major and pnpm provisioning as `ci.yml`, with a comment noting that the two must move together.
 - **FR-019**: The workflow cannot be triggered by a branch push or a pull request.
+- **FR-020**: The checkout step in `publish.yml` sets `persist-credentials: false`, matching the editor's checkout in that same file — the job installs dependencies (and their lifecycle scripts) before authenticating and pushing to the registry, so the checkout token must not remain readable in `.git/config` for that code to read. This does **not** extend to `ci.yml`: the editor's own `checks` job — the only `ci.yml` job this issue has a counterpart for (A-02) — has no `with: persist-credentials: false` on its checkout either. The editor reserves it for jobs that pack a tarball and install it into an external fixture (`package-build`, `examples-build`, `electron-shell-e2e`), which its own comments describe as running "noticeably more third-party code" than the plain install/lint/typecheck/build/test job. `ci.yml` here has no such job, so its checkout is left at defaults, exactly as `checks` is.
+- **FR-021**: `pnpm install --frozen-lockfile` runs in `publish.yml`, before the check steps — the same install command `ci.yml` uses, not implied by FR-015 (which covers the checks themselves, not how dependencies arrive).
+- **FR-022**: Before the publish step, a step installs a specific npm version, pinned to an exact version ≥ 11.5.1 (the floor npm trusted publishing requires) and not `@latest`, with a comment stating why the pin is deliberate: a release path should not pick up an unannounced npm major between a tag being cut and the artifact it produces. The comment also notes that the pinned npm's own `engines.node` requirement is part of why the job runs on Node 24 (FR-018) — the publishing client and the runtime move together.
+- **FR-023**: `actions/setup-node@v4` in `publish.yml` sets `registry-url: 'https://registry.npmjs.org'` — what `npm publish` authenticates through. This is `publish.yml`-only: `ci.yml` never publishes and has no `registry-url` at all, so FR-018's "same provisioning as `ci.yml`" does not by itself imply this — it needs its own requirement.
 
 ### Key Entities
 
@@ -101,7 +105,7 @@ A maintainer publishes a GitHub Release. That act, and only that act, sets `LIMI
 ### Measurable Outcomes
 
 - **SC-001**: Both workflow files exist on the branch, and the CI workflow concludes `success` on the pull request that adds them.
-- **SC-002**: Each of the four checks, made to fail deliberately in isolation, causes the CI run to conclude `failure` — demonstrated for all four, then reverted, leaving no trace of the deliberate failures in the merged diff.
+- **SC-002**: Each of the four checks, made to fail deliberately in isolation, causes the CI run to conclude `failure` — demonstrated for all four, then reverted, leaving no trace of the deliberate failures in the merged diff. If demonstrating all four makes the PR history unwieldy, demonstrating two of the four and confirming the remaining two by inspection is an acceptable substitute — note the substitution in the PR description if used.
 - **SC-003**: Searching the repository for `LIMINIS_ALLOW_PUBLISH` returns exactly one assignment to a process, at step scope in `publish.yml`; every other occurrence is prose or the guard's own read.
 - **SC-004**: The publish workflow records zero runs across the entire lifetime of this pull request, including after merge.
 - **SC-005**: Nothing under `src/`, no `package.json` script, and no line of `scripts/guard-publish.mjs` differs from `main` in the merged diff.
@@ -114,6 +118,15 @@ The first Specify pass left three points where the issue text and the editor's a
 - **Trigger for `publish.yml`**: `on: release: types: [published]` — a published GitHub Release, not a raw tag push. The tag, the release notes and the npm version are decided in one act, and the audit trail is a real artifact rather than shell history. Governs FR-010.
 - **Publish authentication**: npm trusted publishing (OIDC) — `permissions: id-token: write`, `npm publish --provenance`, no `NPM_TOKEN` anywhere. The editor's `publish.yml` states why a token is not a fallback: npm has removed classic automation tokens, and a granular token still returns `EOTP` when the account requires 2FA for writes. Governs FR-013 and FR-014.
 - **CI trigger scope**: `push` to `main` and `pull_request` targeting `main` — not every branch. Governs FR-002. This means verifying SC-002 (a deliberate failure on a scratch branch) requires pushing onto the branch that already has an open pull request, then reverting — a scratch branch with no PR against `main` will not trigger a run at all.
+
+A second review round (2026-08-22 23:10) checked the FRs against the reference files line-by-line and found four places where the reference does something the FRs did not yet require — all four surface for the first time during issue #3's release, after the manual trusted-publisher bootstrap, which is the worst moment to discover a missing npm-version pin or a missing `registry-url`. Added as FR-020 through FR-023:
+
+- **`persist-credentials: false` on `publish.yml`'s checkout** (FR-020) — but **not** on `ci.yml`'s. The review comment proposed both; re-reading the editor's `ci.yml` line by line shows its `checks` job (the only job `ci.yml` here mirrors, per A-02) has no `persist-credentials: false` on its checkout at all — only `package-build`, `examples-build` and `electron-shell-e2e` do, the three jobs that pack a tarball and install it into an external fixture. `ci.yml` here has no such job, so its checkout stays at defaults, matching `checks` exactly rather than the workflow's other three jobs.
+- **A pinned npm ≥ 11.5.1** in `publish.yml`, not `@latest` (FR-022) — the floor npm trusted publishing requires; without it, OIDC publish fails outright on whatever npm the runner happens to bundle.
+- **`registry-url` on `publish.yml`'s `setup-node`** (FR-023) — what the publish step authenticates through; not implied by FR-018, since `ci.yml` has none.
+- **`pnpm install --frozen-lockfile` in `publish.yml`** (FR-021) — FR-015 covers the checks themselves, not how dependencies arrive.
+
+Also confirmed and deliberately **not** added: a `concurrency` group on either workflow. The editor has none on either file, and this issue mirrors the reference rather than improving on it — see Out of Scope.
 
 ## Assumptions
 
@@ -135,6 +148,7 @@ The first Specify pass left three points where the issue text and the editor's a
 - A GitHub Pages workflow. The editor has `pages.yml`; the equivalent here is issue #2 and is not part of this issue.
 - Matrixing CI over Node 22 as well as 24. Worth doing if a consumer reports actually running 22; not worth the CI minutes before then.
 - Branch protection rules, required-check configuration, or any other repository setting outside the two workflow files.
+- A `concurrency` group on either workflow, so superseded runs are not automatically cancelled. Neither editor workflow has one; mirrored, not improved on.
 
 ## Source References
 
@@ -145,4 +159,5 @@ The first Specify pass left three points where the issue text and the editor's a
 - `docs/EXTRACTION-PLAN.md` §7 — sequencing; this is step 5
 - Issue #3 "Publish `@liminis/diagrams` 0.1.0 to npm" — step 6, blocked by this; must bootstrap npm trusted-publisher registration by hand before its first release, since OIDC cannot be pre-registered for a name that has never been published (see Edge Cases, A-08)
 - Issue #2 "GitHub Pages demo app" — the `pages.yml` counterpart, out of scope here
-- @verveguy's 2026-08-22 comment on this issue — resolves the three points recorded in Resolved Decisions
+- @verveguy's 2026-08-22 22:12 comment on this issue — resolves the three points recorded in Resolved Decisions
+- @verveguy's 2026-08-22 23:10 comment on this issue — line-by-line review against the reference files, source of FR-020 through FR-023
