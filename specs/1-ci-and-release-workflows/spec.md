@@ -2,7 +2,7 @@
 
 **Feature Branch**: `fabrik/issue-1`
 **Created**: 2026-08-22
-**Status**: Draft
+**Status**: Specified
 **Input**: User description: "`liminis-diagrams` has no GitHub Actions. Every check (`test`, `typecheck`, `lint`, `build`) currently only runs locally, and there is no path to publishing `@liminis/diagrams` to npm. … Two workflows, mirroring `verveguy/liminis-editor`'s (read those first — they are the reference implementation, not a starting point to improve on)."
 
 ## Background
@@ -38,7 +38,7 @@ A contributor — a person, or a Fabrik Implement worker — opens a pull reques
 
 ### User Story 2 - Cutting a release publishes the package, and nothing else can (Priority: P1)
 
-A maintainer cuts a release. That act, and only that act, sets `LIMINIS_ALLOW_PUBLISH=1`, so the guard stands aside and `npm publish` proceeds. No other workflow, job, or step in the repository can publish as a side effect of doing something else — and the release path re-runs the full check suite first, so a release cannot ship code that does not pass.
+A maintainer publishes a GitHub Release. That act, and only that act, sets `LIMINIS_ALLOW_PUBLISH=1`, so the guard stands aside and `npm publish` proceeds. No other workflow, job, or step in the repository can publish as a side effect of doing something else — and the release path re-runs the full check suite first, so a release cannot ship code that does not pass.
 
 **Why this priority**: without it there is no route to npm at all, and both issue #3 and `EXTRACTION-PLAN` step 7 are blocked behind it.
 
@@ -61,7 +61,7 @@ A maintainer cuts a release. That act, and only that act, sets `LIMINIS_ALLOW_PU
 - **A hung job.** GitHub's 360-minute default outlasts Fabrik's CI-wait gate, which pauses the issue and needs a human to restart it. Every job is capped well below that.
 - **A release cut from a stale commit**, whose CI has expired or never ran. The release path re-runs the checks itself rather than trusting a merge-time result.
 - **Third-party lifecycle scripts.** Jobs that install dependencies run other people's code; the checkout credential should not be left in `.git/config` where that code can read it.
-- **`@liminis/diagrams` has never been published.** npm cannot register a trusted publisher for a package name that does not yet exist on the registry, so the very first publish cannot authenticate by OIDC. That first publish is issue #3's problem, not this one's — but the shape of `publish.yml` decides how hard it will be. See Open Questions Q2.
+- **`@liminis/diagrams` has never been published.** npm cannot register a trusted publisher for a package name that does not yet exist on the registry, so the very first publish cannot authenticate by OIDC until one is registered. `publish.yml` here is written for OIDC regardless (see Resolved Decisions); issue #3 must publish a placeholder or otherwise bootstrap the trusted-publisher registration by hand before its first release can succeed — see A-08 and Source References.
 - **Node version gap.** `engines.node` declares `>=22` while CI tests only 24. This is supported-by-intent, not supported-by-test, and the workflow should say so rather than leave the discrepancy looking accidental.
 
 ## Requirements *(mandatory)*
@@ -69,7 +69,7 @@ A maintainer cuts a release. That act, and only that act, sets `LIMINIS_ALLOW_PU
 ### Functional Requirements — `.github/workflows/ci.yml`
 
 - **FR-001**: A workflow file exists at `.github/workflows/ci.yml`.
-- **FR-002**: It triggers on `pull_request` and on `push`, scoped per Q3.
+- **FR-002**: It triggers on `push` to `main` and on `pull_request` targeting `main` — no other branches, matching the editor's `ci.yml` (Resolved Decisions).
 - **FR-003**: pnpm is provisioned by `pnpm/action-setup@v4`, taking its version from the `packageManager` field in `package.json` (`pnpm@10.33.0`) rather than a second, independently-drifting pin in the workflow.
 - **FR-004**: Node 24 is provisioned by `actions/setup-node@v4` with pnpm caching enabled, and the file records why 24 is tested while `engines.node` claims `>=22`.
 - **FR-005**: Dependencies install with `pnpm install --frozen-lockfile`.
@@ -80,11 +80,11 @@ A maintainer cuts a release. That act, and only that act, sets `LIMINIS_ALLOW_PU
 
 ### Functional Requirements — `.github/workflows/publish.yml`
 
-- **FR-010**: A workflow file exists at `.github/workflows/publish.yml`, triggered per Q1.
+- **FR-010**: A workflow file exists at `.github/workflows/publish.yml`, triggered by `release: types: [published]` — a published GitHub Release, not a tag push (Resolved Decisions).
 - **FR-011**: `LIMINIS_ALLOW_PUBLISH: '1'` is set under the `env:` key of the single step that runs `npm publish`, with a comment stating why the scope is what makes the guard work.
 - **FR-012**: That is the only place in the repository where the variable is assigned to a process. Existing *mentions* — the `//publishing` note in `package.json`, the four occurrences in `scripts/guard-publish.mjs` (its own read of the variable, plus the manual escape hatch it prints), and the prose in `docs/EXTRACTION-PLAN.md` — are documentation of the policy, not assignments, and none of them are touched.
-- **FR-013**: The publish step runs `npm publish --access public` (plus the flags implied by Q2's answer and by FR-017).
-- **FR-014**: The workflow declares the minimum `permissions` its chosen authentication method requires, and no more.
+- **FR-013**: The publish step runs `npm publish --provenance --access public --tag <dist-tag>`, where `<dist-tag>` comes from FR-017 and `--provenance` is available because publishing authenticates via npm trusted publishing / OIDC (Resolved Decisions).
+- **FR-014**: The workflow declares `permissions: contents: read` and `permissions: id-token: write` — the minimum npm trusted publishing (OIDC) requires (Resolved Decisions) — and no more.
 - **FR-015**: `pnpm typecheck`, `pnpm lint` and `pnpm test` run and pass before the publish step is reached. This duplicates `ci.yml` on purpose: `ci.yml` gates merges, this gates releases, and the two can be cut from different commits.
 - **FR-016**: A step fails the run if the version implied by the release tag disagrees with `package.json`'s `version`, printing both.
 - **FR-017**: A step derives the dist-tag from the version: `latest` for a plain version, a non-`latest` tag for anything carrying a prerelease suffix.
@@ -107,16 +107,24 @@ A maintainer cuts a release. That act, and only that act, sets `LIMINIS_ALLOW_PU
 - **SC-005**: Nothing under `src/`, no `package.json` script, and no line of `scripts/guard-publish.mjs` differs from `main` in the merged diff.
 - **SC-006**: A reader of `publish.yml` can determine, from the file alone, why a release is the only thing that publishes.
 
+## Resolved Decisions
+
+The first Specify pass left three points where the issue text and the editor's actual files diverged, flagged as open questions with a recommendation on each. @verveguy resolved all three in a 2026-08-22 comment on this issue ("mirror the editor — take all three recommendations"), and restated each resolution explicitly so the reasoning survives into Plan and Implement rather than living only in the comment thread:
+
+- **Trigger for `publish.yml`**: `on: release: types: [published]` — a published GitHub Release, not a raw tag push. The tag, the release notes and the npm version are decided in one act, and the audit trail is a real artifact rather than shell history. Governs FR-010.
+- **Publish authentication**: npm trusted publishing (OIDC) — `permissions: id-token: write`, `npm publish --provenance`, no `NPM_TOKEN` anywhere. The editor's `publish.yml` states why a token is not a fallback: npm has removed classic automation tokens, and a granular token still returns `EOTP` when the account requires 2FA for writes. Governs FR-013 and FR-014.
+- **CI trigger scope**: `push` to `main` and `pull_request` targeting `main` — not every branch. Governs FR-002. This means verifying SC-002 (a deliberate failure on a scratch branch) requires pushing onto the branch that already has an open pull request, then reverting — a scratch branch with no PR against `main` will not trigger a run at all.
+
 ## Assumptions
 
-- **A-01**: "Mirroring the editor" governs anything this issue does not spell out. Where the issue text and the editor's files disagree in wording but not in intent, the editor's files win; where they disagree materially, it is an Open Question below rather than a silent choice.
+- **A-01**: "Mirroring the editor" governs anything this issue does not spell out. Where the issue text and the editor's files disagreed in wording but not in intent, the editor's files won. The three points where they disagreed materially — release trigger, publish authentication, CI branch scope — were resolved by @verveguy; see Resolved Decisions.
 - **A-02**: Only the editor's `checks` job has a counterpart here. `package-build`, `examples-build` and `electron-shell-e2e` depend on `verify:package`, `build:examples` and an Electron host, none of which exist in this repository — and adding them would require the `package.json` script changes this issue puts out of scope.
 - **A-03**: The order of the four check steps is not functionally significant. The issue lists them lint → typecheck → test → build; the editor runs typecheck → lint → build → test. Either satisfies FR-006.
 - **A-04**: The editor's `ci.yml` header comment points at its `docs/provenance.md`. The equivalent record here is `docs/EXTRACTION-PLAN.md`; the pointer is adapted, and the substance of the comment (CI does not reach outward) is carried over intact.
 - **A-05**: `liminis-diagrams` is a public repository, so npm provenance attestation is available to it.
 - **A-06**: The `--access public` in `publishConfig` and the explicit `--access public` on the publish command are both kept, as the editor does. The redundancy is deliberate: `publishConfig` has burned this package family before (see the `//entrypoints` note in `package.json` and the editor's ADR-078).
-- **A-07**: Verifying SC-002 requires a run that is genuinely triggered. If CI is scoped to `main` (Q3), a scratch-branch push alone will not fire it and the deliberate failures must be pushed onto the branch that already has a pull request open, then reverted.
-- **A-08**: No repository secret or npm registry configuration is created as part of this issue. If Q2's answer requires one, arranging it is issue #3's work; this issue delivers the workflow that will use it.
+- **A-07**: Verifying SC-002 requires a run that is genuinely triggered. Since CI is scoped to `main` (Resolved Decisions), the deliberate failures must be pushed onto the branch that already has a pull request open, then reverted.
+- **A-08**: No repository secret or npm registry configuration is created as part of this issue. Publishing here uses OIDC trusted publishing (Resolved Decisions), which requires `@liminis/diagrams` to be registered as a trusted publisher on npmjs.com before the first release can succeed — and npm cannot register a trusted publisher for a name that has never been published (see Edge Cases). Arranging that bootstrap is issue #3's work; this issue delivers the workflow that will use it once registered.
 
 ## Out of Scope
 
@@ -135,5 +143,6 @@ A maintainer cuts a release. That act, and only that act, sets `LIMINIS_ALLOW_PU
 - `scripts/guard-publish.mjs` — the guard, unchanged by this issue
 - `package.json` — `packageManager`, `engines`, `publishConfig`, `prepublishOnly`, and the `//publishing` note explaining the guard
 - `docs/EXTRACTION-PLAN.md` §7 — sequencing; this is step 5
-- Issue #3 "Publish `@liminis/diagrams` 0.1.0 to npm" — step 6, blocked by this
+- Issue #3 "Publish `@liminis/diagrams` 0.1.0 to npm" — step 6, blocked by this; must bootstrap npm trusted-publisher registration by hand before its first release, since OIDC cannot be pre-registered for a name that has never been published (see Edge Cases, A-08)
 - Issue #2 "GitHub Pages demo app" — the `pages.yml` counterpart, out of scope here
+- @verveguy's 2026-08-22 comment on this issue — resolves the three points recorded in Resolved Decisions
