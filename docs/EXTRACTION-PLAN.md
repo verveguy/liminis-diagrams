@@ -204,11 +204,28 @@ And `liminis-editor` already depends on `micromark-extension-wiki-link`, so
 | 1 | Scaffold workspace, mirror editor tooling | **done** |
 | 2 | Recover history, restructure, fix imports, green tests | **done** — 101 commits, 106 tests |
 | 3 | `styles.css` layer-class question | **done** — see below |
-| 4 | Create the GitHub repo, board it on project 5, push | *needs your go-ahead* |
-| 5 | CI workflow + release/publish workflow | Fabrik issue |
-| 6 | Publish `0.1.0` (guarded) | blocks 7 |
-| 7 | Editor PR: delete local copy, consume the package, keep the round-trip tests | Fabrik issue, `blocked_by` 6 |
-| 8 | Wiki layer — §6b/6c/6d | Fabrik issues; can start now, does not wait on 7 |
+| 4 | Create the public GitHub repo, board it on project 5, push | **done** |
+| 5 | CI + release workflows | diagrams#1 — *in Specify* |
+| 6 | Publish `0.1.0` (guarded) | diagrams#3 — blocked by #1 |
+| 7 | GitHub Pages demo app | diagrams#2 — blocked by #3 |
+| 8 | Editor PR: consume the package, keep the round-trip tests | editor#100 — blocked by #3 |
+| 9 | Wiki layer — §6b/6c/6d | not yet filed; can start any time |
+
+Live at https://github.com/verveguy/liminis-diagrams. The demo will serve from
+**https://v3rv.com/liminis-diagrams/** — this account's Pages sites are served through an
+account-wide custom domain configured on the user site, so project pages are
+`v3rv.com/<repo>/`, not `verveguy.github.io/<repo>/`. Each project repo reports
+`https_enforced: false` with `cname: null` because the domain is inherited; that flag
+governs the http→https *redirect* only, not whether https works. It does — verified 200 on
+the sibling repos. Always link the `https://` form.
+
+**The demo builds against the published npm package, not `../src`** (Brett's call). That
+is why #2 sits behind #6 rather than running in parallel: it makes the demo a continuous
+consumer-integration test, so a broken `exports` map or a mis-specified `files` breaks the
+demo build instead of surfacing months later in someone else's project. The cost is that
+the demo lags the source by a release. Load-bearing detail: **this repo must not gain a
+`pnpm-workspace.yaml`**, or pnpm will resolve `@liminis/diagrams` to local source through a
+symlink and the guarantee evaporates silently.
 
 On step 3: the four `*-layer` class names are only ever used as SVG group selectors and
 carry no styling this package depends on — the editor's 18 c4 lines in `styles.css` style
