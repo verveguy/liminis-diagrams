@@ -9,10 +9,10 @@
 
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createElement } from 'react';
-import { C4Renderer } from './renderer';
-import { parseC4, validateC4 } from './parser';
-import { layoutC4Diagram } from './layout';
-import type { ParseError } from './types';
+import { C4Renderer } from '../react/renderer';
+import { parseC4, validateC4 } from '../core/parser';
+import { layoutC4Diagram } from '../core/layout';
+import type { ParseError } from '../core/types';
 
 /**
  * Parse C4 code and render to SVG string in one call.

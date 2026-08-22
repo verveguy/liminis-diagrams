@@ -1,0 +1,25 @@
+{
+  // Structure-preserving `tsc` emit, not a bundle — deliberately, for the same
+  // reason @liminis/editor does it (its ADR-075: a bundler's whole-graph chunking
+  // produced a `ReferenceError` that no config made visible). Emitting
+  // module-for-module is also what keeps `./core` genuinely React-free: no
+  // chunker can hoist `react/jsx-runtime` into it.
+  //
+  // `tsc-alias --resolve-full-paths` runs afterwards to turn tsc's extensionless
+  // relative specifiers into Node-ESM-resolvable `./x.js` ones.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    // No maps: `files` ships dist/ without src/, so every emitted map would point
+    // at a `../src/*.ts` that is not in the tarball. Turn these on only together
+    // with shipping src/.
+    "declarationMap": false,
+    "sourceMap": false,
+    "allowImportingTsExtensions": false,
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
+}

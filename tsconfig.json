@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    // Mirrors @liminis/editor's, which in turn mirrors the Electron renderer this
+    // code was written in (verveguy/liminis), so the same bar applies after the move.
+    "target": "ES2024",
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": ["react", "react-dom", "node"]
+  },
+  "include": ["src/**/*"]
+}

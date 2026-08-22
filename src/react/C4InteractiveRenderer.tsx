@@ -5,10 +5,16 @@
  * Maintains local position state during drag and recalculates edges in real-time.
  */
 
+// React 19 removed the global `JSX` namespace; liminis-editor papered over that
+// with an ambient `declare global` shim (src/ambient/jsx.d.ts). A published
+// package cannot do that — the shim would either pollute every consumer's
+// global scope or not ship at all, leaving our emitted .d.ts referencing an
+// unresolvable `JSX.Element`. Importing the namespace keeps it local.
+import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { C4RendererContent, computeLegendInfo } from './renderer';
-import { layoutC4Diagram } from './layout';
-import type { LayoutResult, LayoutNode, C4Diagram, C4Element } from './types';
+import { layoutC4Diagram } from '../core/layout';
+import type { LayoutResult, LayoutNode, C4Diagram, C4Element } from '../core/types';
 import { useC4DiagramDrag } from './hooks/useC4DiagramDrag';
 
 /** Synthetic ID used to store legend position in manual positions map */

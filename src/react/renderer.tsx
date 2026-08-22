@@ -15,8 +15,14 @@
  * - Light and dark theme support
  */
 
-import type { LayoutResult, LayoutNode, LayoutEdge, Point } from './types';
-import { buildClippedEdgePaths } from './edge-clipping';
+// React 19 removed the global `JSX` namespace; liminis-editor papered over that
+// with an ambient `declare global` shim (src/ambient/jsx.d.ts). A published
+// package cannot do that — the shim would either pollute every consumer's
+// global scope or not ship at all, leaving our emitted .d.ts referencing an
+// unresolvable `JSX.Element`. Importing the namespace keeps it local.
+import type { JSX } from 'react';
+import type { LayoutResult, LayoutNode, LayoutEdge, Point } from '../core/types';
+import { buildClippedEdgePaths } from '../core/edge-clipping';
 
 // =============================================================================
 // CONSTANTS

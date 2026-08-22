@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { C4Renderer, C4ErrorDisplay } from './renderer';
-import { layoutC4Diagram } from './layout';
-import { parseC4 } from './parser';
-import type { LayoutResult, LayoutNode, LayoutEdge, C4Element } from './types';
+import { layoutC4Diagram } from '../core/layout';
+import { parseC4 } from '../core/parser';
+import type { LayoutResult, LayoutNode, LayoutEdge, C4Element } from '../core/types';
 
 /**
  * Helper to create a minimal layout result for testing.
