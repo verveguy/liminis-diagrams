@@ -48,12 +48,14 @@ export default defineConfig({
           ],
         },
         {
-          // The extraction record is a decision log, not user documentation. It
-          // is on the site because its §6 is the honest account of what this
-          // package does not do — which the guide links to — but filed apart so
-          // nobody mistakes it for a how-to.
-          label: 'Project',
-          items: [{ label: 'Extraction record', link: '/extraction-plan/' }],
+          // Two ways to get diagrams rendered somewhere that is not this site.
+          // Filed apart from the build-on-it pages because they are about
+          // wiring the package into someone else's pipeline, not about its API.
+          label: 'Integrations',
+          items: [
+            { label: 'GitHub', link: '/github-integration/' },
+            { label: 'Claude Code', link: '/claude-code-integration/' },
+          ],
         },
       ],
     }),

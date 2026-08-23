@@ -10,11 +10,6 @@ manual positions interact with dagre, what the parser accepts and silently disca
 and which parts of a "C4 editing experience" live here versus in
 [`@liminis/editor`](https://github.com/verveguy/liminis-editor).
 
-If you want the story of *how* this package came to exist — what was extracted from
-`@liminis/editor`, what the move preserved, what it decided not to bring along — see
-[`extraction-plan.md`](./extraction-plan.md) instead. This directory is for using the
-package; that file is for its history.
-
 There is a **[live demo](/liminis-diagrams/demo/)** if you would rather see it than read about it — it
 runs the published package, so what you drag there is what you install.
 
@@ -30,25 +25,27 @@ until you've already built against it. Four things this package does **not** do:
 2. **No persistence.** `@liminis/diagrams` never writes anywhere. `C4InteractiveRenderer`
    reports position changes via a callback; storing them — in a file, a database, a
    fenced code block's meta string, wherever — is entirely the host's job. See
-   [Recipe 3](./recipes.md#recipe-3-position-persistence--the-hosts-choice).
+   [Recipe 3](/liminis-diagrams/recipes/#recipe-3-position-persistence--the-hosts-choice).
 3. **Element IDs are fence-local.** `C4Element.id` is unique within one parsed diagram
    only. It carries no identity across two diagrams — two `System(app, ...)` blocks in
-   different files have nothing connecting their `app` IDs. See
-   [extraction-plan.md §6b](./extraction-plan.md#6-what-the-extraction-does-not-give-you).
+   different files have nothing connecting their `app` IDs. Anything that wants stable
+   cross-file identity (`file#id`, a declared namespace, a URN) has to establish it in
+   a layer above this package, over several already-parsed diagrams.
 4. **No cross-diagram link syntax.** There is no `Rel` that spans two diagrams, and no
-   "this container is detailed in another diagram" relationship. You can't improvise one
+   "this container is detailed in another diagram" relationship — which is exactly the
+   C4 zoom-level relationship a linked set of diagrams wants. You can't improvise one
    either: an unrecognized macro name is a parse error, not a silently-ignored no-op, and
-   `!include` is recognized but stripped — the included file is never fetched or inlined.
-   See
-   [extraction-plan.md §6c](./extraction-plan.md#6-what-the-extraction-does-not-give-you).
+   `!include` is recognized but stripped, so the included file is never fetched or
+   inlined. Adding it means extending the parser, or carrying the link beside the
+   diagram in fence meta or frontmatter.
 
 ## Contents
 
-| Doc | Answers |
+| Page | Answers |
 |---|---|
-| [`architecture.md`](./architecture.md) | Which entry point (`.`, `./core`, `./react`, `./server`) should I install, and why? |
-| [`dsl-reference.md`](./dsl-reference.md) | Will my existing C4-PlantUML source parse? What gets silently stripped? |
-| [`data-model.md`](./data-model.md) | What does a parsed diagram / layout result actually contain? (the centerpiece) |
-| [`recipes.md`](./recipes.md) | Complete, runnable examples: headless SVG rendering, embedding the interactive renderer, persisting positions. |
-| [`github-integration.md`](./github-integration.md) | How do I get GitHub to show a rendered C4 diagram in a markdown file? |
-| [`claude-code-integration.md`](./claude-code-integration.md) | How do I get Claude to render a real C4 diagram instead of hand-drawing one? |
+| [Architecture](/liminis-diagrams/architecture/) | Which entry point (`.`, `./core`, `./react`, `./server`) should I install, and why? |
+| [C4-PlantUML reference](/liminis-diagrams/dsl-reference/) | Will my existing C4-PlantUML source parse? What gets silently stripped? |
+| [Data model](/liminis-diagrams/data-model/) | What does a parsed diagram / layout result actually contain? (the centerpiece) |
+| [Recipes](/liminis-diagrams/recipes/) | Complete, runnable examples: headless SVG rendering, embedding the interactive renderer, persisting positions. |
+| [GitHub](/liminis-diagrams/github-integration/) | How do I get GitHub to show a rendered C4 diagram in a markdown file? |
+| [Claude Code](/liminis-diagrams/claude-code-integration/) | How do I get Claude to render a real C4 diagram instead of hand-drawing one? |

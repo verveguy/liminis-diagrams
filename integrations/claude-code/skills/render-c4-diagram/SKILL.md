@@ -10,8 +10,8 @@ raw SVG natively, but C4-PlantUML is neither, so left alone Claude will either h
 an approximation or refuse. This skill wraps the `render-c4` CLI from
 [`@liminis/diagrams`](https://github.com/verveguy/liminis-diagrams) so a real, correctly
 laid-out diagram gets produced instead — see
-[`docs/github-integration.md`](../../../../docs/github-integration.md) in that repo for
-the CLI's full flag reference.
+[Rendering diagrams on GitHub](https://v3rv.com/liminis-diagrams/github-integration/) for the CLI's full flag
+reference.
 
 ## When this applies
 

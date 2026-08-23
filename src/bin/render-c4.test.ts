@@ -14,7 +14,7 @@ import { parseArgs, outputPathFor, validateStdinCombination, renderFiles } from 
 describe('parseArgs', () => {
   it('collects positional args as files', () => {
     const options = parseArgs(['a.puml', 'b.puml']);
-    expect(options).toEqual({ files: ['a.puml', 'b.puml'], dark: false, check: false, stdin: false });
+    expect(options).toEqual({ files: ['a.puml', 'b.puml'], fromMarkdown: false, dark: false, check: false, stdin: false });
   });
 
   it('parses --dark, --check, --stdin as flags', () => {
@@ -35,7 +35,7 @@ describe('parseArgs', () => {
 });
 
 describe('outputPathFor', () => {
-  const base = { files: [], dark: false, check: false, stdin: false };
+  const base = { files: [], fromMarkdown: false, dark: false, check: false, stdin: false };
 
   it('replaces the extension with .svg next to the input by default', () => {
     expect(outputPathFor('docs/architecture.puml', base)).toBe('docs/architecture.svg');
@@ -53,7 +53,7 @@ describe('outputPathFor', () => {
 });
 
 describe('validateStdinCombination', () => {
-  const base = { files: [], dark: false, check: false, stdin: false };
+  const base = { files: [], fromMarkdown: false, dark: false, check: false, stdin: false };
 
   it('allows --stdin on its own', () => {
     expect(validateStdinCombination({ ...base, stdin: true })).toBeNull();
@@ -78,8 +78,8 @@ describe('renderFiles', () => {
     dir = mkdtempSync(join(tmpdir(), 'render-c4-test-'));
     const missing = join(dir, 'does-not-exist.puml');
 
-    expect(() => renderFiles({ files: [missing], dark: false, check: false, stdin: false })).not.toThrow();
-    expect(renderFiles({ files: [missing], dark: false, check: false, stdin: false })).toBe(2);
+    expect(() => renderFiles({ files: [missing], fromMarkdown: false, dark: false, check: false, stdin: false })).not.toThrow();
+    expect(renderFiles({ files: [missing], fromMarkdown: false, dark: false, check: false, stdin: false })).toBe(2);
   });
 
   it('continues past a missing file and still renders the rest of the batch', () => {
@@ -88,7 +88,7 @@ describe('renderFiles', () => {
     const valid = join(dir, 'valid.puml');
     writeFileSync(valid, 'Person(user, "User", "End user")');
 
-    const exitCode = renderFiles({ files: [missing, valid], dark: false, check: false, stdin: false });
+    const exitCode = renderFiles({ files: [missing, valid], fromMarkdown: false, dark: false, check: false, stdin: false });
 
     expect(exitCode).toBe(2); // the missing file still counts as a failure
     const outPath = join(dir, 'valid.svg');
@@ -97,6 +97,6 @@ describe('renderFiles', () => {
   });
 
   it('--check with zero files is a valid, empty batch — not an error', () => {
-    expect(renderFiles({ files: [], dark: false, check: true, stdin: false })).toBe(0);
+    expect(renderFiles({ files: [], fromMarkdown: false, dark: false, check: true, stdin: false })).toBe(0);
   });
 });

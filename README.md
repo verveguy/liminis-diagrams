@@ -13,7 +13,7 @@ renders ` ```c4 ` fenced code blocks. Nothing here is bound to that editor.
 C4-PlantUML source and see it re-render live, drag nodes to reposition them, toggle dark
 mode, and switch between a few preset diagrams. The demo keeps dragged positions in
 memory only, for as long as the tab is open — this package has no persistence of its
-own (see [Recipe 3](docs/recipes.md#recipe-3-position-persistence--the-hosts-choice)),
+own (see [Recipe 3](https://v3rv.com/liminis-diagrams/recipes/#recipe-3-position-persistence--the-hosts-choice)),
 and neither does this demo.
 
 ## Install
@@ -25,12 +25,12 @@ npm install @liminis/diagrams
 `react` and `react-dom` are **optional** peers. Installing the package gets you
 `@dagrejs/dagre` and nothing else, so `@liminis/diagrams/core` works in a CLI or CI job
 with no React on disk. Install the peers if you use `/react` or `/server` — see
-[`docs/architecture.md`](docs/architecture.md) for why the split exists and which entry
+[Architecture](https://v3rv.com/liminis-diagrams/architecture/) for why the split exists and which entry
 point to pick.
 
 ## Not sure this package does what you're assuming?
 
-Read [Limitations](docs/README.md#limitations--read-this-first) before you build
+Read [Limitations](https://v3rv.com/liminis-diagrams/#limitations--read-this-first) before you build
 against this package. In short: no editing UI, no persistence, element IDs aren't
 stable across diagrams, no cross-diagram links.
 
@@ -85,7 +85,7 @@ import { C4InteractiveRenderer } from '@liminis/diagrams/react';
 
 Pass `manualPositions` to `layoutC4Diagram` to bypass dagre for the elements you have
 positions for. Persisting them is entirely your call — see
-[Recipe 3](docs/recipes.md#recipe-3-position-persistence--the-hosts-choice) for a worked
+[Recipe 3](https://v3rv.com/liminis-diagrams/recipes/#recipe-3-position-persistence--the-hosts-choice) for a worked
 example (including how `@liminis/editor` does it) and why this package itself never
 writes them anywhere.
 
@@ -98,8 +98,8 @@ npx --package=@liminis/diagrams -- render-c4 diagram.puml
 
 Useful for pre-rendering diagrams so a plain `![Diagram](diagram.svg)` is enough for
 GitHub (or any markdown renderer) to show them — see
-[`docs/github-integration.md`](docs/github-integration.md) for the CI recipe, and
-[`docs/claude-code-integration.md`](docs/claude-code-integration.md) for getting Claude
+[Rendering diagrams on GitHub](https://v3rv.com/liminis-diagrams/github-integration/) for the CI recipe, and
+[Rendering diagrams in Claude Code](https://v3rv.com/liminis-diagrams/claude-code-integration/) for getting Claude
 to render real diagrams instead of hand-drawing them.
 
 ## Supported syntax
@@ -107,13 +107,13 @@ to render real diagrams instead of hand-drawing them.
 `Person`, `System`, `Container`, `Component` and their `_Ext` / `Db` / `Queue` variants,
 plus `Deployment_Node`, `Node`, and `InfrastructureNode` variants; boundary macros;
 `Rel` (with directional variants) and `BiRel`. See
-[`docs/dsl-reference.md`](docs/dsl-reference.md) for the full macro table and exactly
+[the C4-PlantUML reference](https://v3rv.com/liminis-diagrams/dsl-reference/) for the full macro table and exactly
 which directives (`@startuml`, `!include`, `SHOW_LEGEND()`, `LAYOUT_*`, …) are applied
 versus silently stripped.
 
 ## Documentation
 
-Building a tool on top of this package? [`docs/`](docs/README.md) covers the
+Building a tool on top of this package? [the documentation site](https://v3rv.com/liminis-diagrams/) covers the
 entry-point boundary, the full DSL reference, the data model, and runnable recipes for
 headless rendering, embedding the interactive renderer, and position persistence.
 
@@ -122,7 +122,7 @@ headless rendering, embedding the interactive renderer, and position persistence
 The commit history predates this repository: it was recovered from
 `verveguy/liminis` (`liminis-app/src/editor/app/editor/c4/`, later
 `packages/editor/src/app/editor/c4/`) and carries development from 2026-03-18 onward.
-`git log --follow` works across the move. See `docs/EXTRACTION-PLAN.md`.
+`git log --follow` works across the move.
 
 ## License
 
