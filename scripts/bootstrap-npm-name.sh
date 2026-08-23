@@ -110,7 +110,13 @@ MD
   echo "This cannot be undone after 72 hours, and the name is claimed permanently."
   echo
   printf 'Continue? [y/N] '
-  read -r REPLY
+  if ! read -r REPLY; then
+    printf '\n'
+    echo "No input available -- this script must be run from an interactive"
+    echo "terminal, not a pipe or a non-interactive runner."
+    echo "Nothing was published."
+    exit 1
+  fi
   case "$REPLY" in
     [yY]*) ;;
     *) echo "Aborted. Nothing was published."; exit 0 ;;
