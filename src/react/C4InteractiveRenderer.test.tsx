@@ -65,6 +65,14 @@ function renderDiagram(overrides: Record<string, unknown> = {}) {
 const hitAreas = (container: HTMLElement) =>
   Array.from(container.querySelectorAll<SVGRectElement>('[data-node-id]'));
 
+/**
+ * The last positions map the component reported. Note that `onPositionChange`
+ * fires on drag *end*, not on every move — a gesture has to be completed with a
+ * pointerup before anything is observable here.
+ */
+const lastPositions = (spy: { mock: { calls: unknown[][] } }) =>
+  spy.mock.calls.at(-1)![0] as Record<string, { x: number; y: number }>;
+
 beforeEach(stubSvgGeometry);
 
 describe('C4InteractiveRenderer drag', () => {
@@ -119,6 +127,48 @@ describe('C4InteractiveRenderer drag', () => {
     // Further movement must not move anything: the drag is over.
     fireEvent.pointerMove(window, { clientX: 400, clientY: 400 });
     expect(onPositionChange.mock.calls.length).toBe(callsAfterCancel);
+  });
+
+  it('ignores a second finger landing on another node mid-drag', () => {
+    // Pointer events, unlike mouse events, deliver concurrent streams. Without a
+    // guard the second pointerdown overwrites the single-slot drag state, so the
+    // first finger's movement starts dragging the second node instead.
+    const { container, onPositionChange } = renderDiagram();
+    const areas = hitAreas(container);
+    expect(areas.length).toBeGreaterThan(1);
+    const [first, second] = areas;
+    const firstId = first.getAttribute('data-node-id')!;
+    const secondId = second.getAttribute('data-node-id')!;
+    const firstX = Number(first.getAttribute('x'));
+    const secondX = Number(second.getAttribute('x'));
+
+    fireEvent.pointerDown(first, { pointerId: 1, clientX: 100, clientY: 100 });
+    // Second finger lands on a different node while the first drag is live.
+    fireEvent.pointerDown(second, { pointerId: 2, clientX: 300, clientY: 300 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 160, clientY: 100 });
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 160, clientY: 100 });
+
+    const positions = lastPositions(onPositionChange);
+    // The first finger still moved the node it grabbed...
+    expect(positions[firstId].x).toBeCloseTo(firstX + 60, 0);
+    // ...and the second node was not dragged by it.
+    expect(positions[secondId].x).toBeCloseTo(secondX, 0);
+  });
+
+  it('does not let a second finger lifting end the first drag', () => {
+    const { container, onPositionChange } = renderDiagram();
+    const first = hitAreas(container)[0];
+    const firstId = first.getAttribute('data-node-id')!;
+    const startX = Number(first.getAttribute('x'));
+
+    fireEvent.pointerDown(first, { pointerId: 1, clientX: 100, clientY: 100 });
+    // A different finger releases elsewhere. If this ended the drag, the
+    // movement below would be ignored and the final position would be unmoved.
+    fireEvent.pointerUp(window, { pointerId: 2, clientX: 500, clientY: 500 });
+    fireEvent.pointerMove(window, { pointerId: 1, clientX: 180, clientY: 100 });
+    fireEvent.pointerUp(window, { pointerId: 1, clientX: 180, clientY: 100 });
+
+    expect(lastPositions(onPositionChange)[firstId].x).toBeCloseTo(startX + 80, 0);
   });
 
   it('does not drag when edit mode is off', () => {
