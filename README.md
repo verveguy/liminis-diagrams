@@ -89,6 +89,19 @@ positions for. Persisting them is entirely your call — see
 example (including how `@liminis/editor` does it) and why this package itself never
 writes them anywhere.
 
+## Render on the command line
+
+```bash
+npx --package=@liminis/diagrams -- render-c4 diagram.puml
+# diagram.puml -> diagram.svg
+```
+
+Useful for pre-rendering diagrams so a plain `![Diagram](diagram.svg)` is enough for
+GitHub (or any markdown renderer) to show them — see
+[`docs/github-integration.md`](docs/github-integration.md) for the CI recipe, and
+[`docs/claude-code-integration.md`](docs/claude-code-integration.md) for getting Claude
+to render real diagrams instead of hand-drawing them.
+
 ## Supported syntax
 
 `Person`, `System`, `Container`, `Component` and their `_Ext` / `Db` / `Queue` variants,
