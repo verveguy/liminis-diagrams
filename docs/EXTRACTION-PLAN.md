@@ -205,8 +205,8 @@ And `liminis-editor` already depends on `micromark-extension-wiki-link`, so
 | 2 | Recover history, restructure, fix imports, green tests | **done** — 101 commits, 106 tests |
 | 3 | `styles.css` layer-class question | **done** — see below |
 | 4 | Create the public GitHub repo, board it on project 5, push | **done** |
-| 5 | CI + release workflows | diagrams#1 — *in Specify* |
-| 6 | Publish `0.1.0` (guarded) | diagrams#3 — blocked by #1 |
+| 5 | CI + release workflows | diagrams#1 — **done** |
+| 6 | Publish `0.1.0` (guarded) | diagrams#3 — **done**, [v0.1.0](https://github.com/verveguy/liminis-diagrams/releases/tag/v0.1.0) |
 | 7 | GitHub Pages demo app | diagrams#2 — blocked by #3 |
 | 8 | Editor PR: consume the package, keep the round-trip tests | editor#100 — blocked by #3 |
 | 9 | Wiki layer — §6b/6c/6d | not yet filed; can start any time |
