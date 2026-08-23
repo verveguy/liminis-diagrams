@@ -2,7 +2,7 @@
 
 **Feature Branch**: `fabrik/issue-3`
 **Created**: 2026-08-22
-**Status**: Draft
+**Status**: Specified
 **Input**: User description: "The package is complete and green but unpublished, so nothing can consume it — including `liminis-editor`, which still carries its own copy of the C4 code. Until this lands, the same code lives in two repos and can silently diverge. Publish `@liminis/diagrams@0.1.0` to npm via the release workflow."
 
 ## Background
@@ -15,7 +15,7 @@ Publishing is guarded on two fronts, and both exist because a real incident is c
 - `scripts/guard-publish.mjs` refuses `npm publish` unless `LIMINIS_ALLOW_PUBLISH=1` is set, because `npm publish --dry-run` (npm 10.8.2) gives no signal that a publish would actually happen.
 - npm's unpublish window is 72 hours and narrower than people expect — an accidental or premature publish of `0.1.0` is close to irreversible.
 
-A related one-time step, `scripts/bootstrap-npm-name.sh`, has already reserved the `@liminis/diagrams` name on npm with a `0.0.0` placeholder (confirmed live on the registry, dist-tags `placeholder` and `latest` both pointing at `0.0.0`). That script's browser-based next step — registering `verveguy/liminis-diagrams`'s `publish.yml` as a Trusted Publisher on the package's npmjs.com settings page — could not be verified from this stage; see Assumptions.
+A related one-time step, `scripts/bootstrap-npm-name.sh`, has already reserved the `@liminis/diagrams` name on npm with a `0.0.0` placeholder (published 2026-08-23, 2 files, 528 bytes, no code; dist-tags `placeholder` and `latest` both currently point at it). Its browser-based next step — registering `verveguy/liminis-diagrams`'s `publish.yml` as a Trusted Publisher on the package's npmjs.com settings page — is also confirmed done, per @verveguy, 2026-08-23: publisher GitHub Actions, organization/user `verveguy`, repository `liminis-diagrams`, workflow filename `publish.yml`, no environment, allowed actions scoped to **`npm publish` only** (staged publishing was deliberately not granted, since `publish.yml` doesn't use it).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -39,26 +39,29 @@ As the maintainer, I want `@liminis/diagrams@0.1.0` published to npm via `publis
 - `@liminis/diagrams` currently has only a `0.0.0` placeholder version on npm, with dist-tag `latest` pointing at it. A successful `0.1.0` publish must move `latest` to `0.1.0`.
 - `./core` must resolve and run with **no React present at all** (peers omitted) — this is the package's central architectural claim (see `README.md`'s entry-point table) and the one precondition most likely to regress silently.
 - `LIMINIS_ALLOW_PUBLISH=1` must be scoped to only the `npm publish` step inside `publish.yml`, not the job or workflow — this is what keeps the guard meaningful.
+- The npm Trusted Publisher registration is scoped to the `npm publish` action only, not staged publishing. If `publish.yml` is ever changed to publish in two steps (e.g. a separate stage/publish action), the registration must be updated first, or the workflow will fail to authenticate rather than silently working.
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
 - **FR-001**: CI MUST be verified green on `main` (not assumed) before any publish action is taken.
-- **FR-002**: `npm pack --dry-run` output MUST contain only files under `dist/` — no `src/`, `demo/`, or `.ts` sources.
+- **FR-002**: `npm pack --dry-run` output MUST contain only files under `dist/` — no `src/`, `demo/`, `specs/`, or `.ts` sources.
 - **FR-003**: All four package entry points (`.`, `./core`, `./react`, `./server`) MUST resolve correctly when the packed tarball is installed into a scratch directory.
 - **FR-004**: `./core` MUST import successfully when installed with peer dependencies omitted (`--omit=peer`, or into a project with no React on disk), confirming it pulls in no React.
 - **FR-005**: `LIMINIS_ALLOW_PUBLISH=1` MUST be set only at step scope within `publish.yml`, not at job or workflow scope.
 - **FR-006**: The publish MUST occur via the release workflow (`publish.yml`, triggered by a published GitHub Release) — not a manual or local `npm publish`.
-- **FR-007**: If any precondition (FR-001 through FR-005) fails, the process MUST stop without publishing, and a separate issue MUST be opened to address the failure.
+- **FR-007**: If any precondition (FR-001 through FR-005, or FR-011) fails, the process MUST stop without publishing, and a separate issue MUST be opened to address the failure.
 - **FR-008**: After publish, `npm install @liminis/diagrams` MUST succeed from a clean directory and resolve `0.1.0`.
 - **FR-009**: The npm package page for `@liminis/diagrams` MUST display the README and MIT license.
 - **FR-010**: A git tag corresponding to the `0.1.0` release MUST exist in the repository.
+- **FR-011**: Before contacting the registry, the release process MUST verify that `package.json`'s `version` field is exactly `0.1.0` and agrees with the release tag; a mismatch MUST fail the run rather than attempt to publish.
+- **FR-012**: The publish MUST land on the npm dist-tag `latest` — `0.1.0` is a stable release with no prerelease suffix — so that it supersedes the `0.0.0` placeholder currently holding `latest`.
 
 ### Key Entities
 
 - **Release workflow** (`.github/workflows/publish.yml`): GitHub Actions workflow triggered by `release: published`; runs the full test suite and build, then publishes via `prepublishOnly` → `scripts/guard-publish.mjs`, authenticated by npm trusted publishing (OIDC).
-- **npm Trusted Publisher**: OIDC-based publish authorization, registered on `@liminis/diagrams`'s npmjs.com package settings page, binding publish rights to `verveguy/liminis-diagrams`'s `publish.yml` workflow specifically.
+- **npm Trusted Publisher**: OIDC-based publish authorization, registered on `@liminis/diagrams`'s npmjs.com package settings page, binding publish rights to `verveguy/liminis-diagrams`'s `publish.yml` workflow specifically, scoped to the `npm publish` action only (confirmed registered — see Background).
 - **`0.0.0` placeholder**: The existing npm release reserving the package name (published by `scripts/bootstrap-npm-name.sh`), currently holding both the `placeholder` and `latest` dist-tags. Retiring it (via `npm deprecate`) is explicitly deferred until after `0.1.0` is live, and is out of scope here.
 
 ## Success Criteria *(mandatory)*
@@ -73,7 +76,6 @@ As the maintainer, I want `@liminis/diagrams@0.1.0` published to npm via `publis
 ## Assumptions
 
 - The Fabrik pipeline (this issue's Implement stage) is authorized to create the GitHub Release that triggers `publish.yml` — and therefore the actual, close-to-irreversible npm publish — once every precondition above passes. This issue's acceptance criteria describe a *published* package, not merely a readiness check, so cutting the release is understood to be this issue's own terminal action rather than a follow-up for a human to trigger separately.
-- Whether the npm Trusted Publisher (GitHub Actions OIDC for `verveguy/liminis-diagrams` → `publish.yml`) has been registered on `@liminis/diagrams`'s npmjs.com settings page could not be confirmed during this stage — it requires an interactive npm/browser session and the registry API does not expose it. If it turns out not to have been done, the release workflow's publish step will fail at the OIDC authentication step; the release/tag itself is unaffected and the fix (registering the Trusted Publisher, then re-running the workflow) is non-destructive.
 - Tag/release naming follows standard semver convention (e.g. `v0.1.0`); the repository has no prior tag to conform to, since this would be its first release.
 - CI was confirmed green on `origin/main` during this Specify pass (run on commit `bc75841`, 2026-08-23) but MUST be re-verified at Implement time, since `main` can move between now and then.
 
