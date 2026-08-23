@@ -52,6 +52,7 @@ const FENCE = /^```c4([^\n]*)\n([\s\S]*?)\n```$/gm
 
 let wrote = 0
 let stale = []
+let diagrams = 0
 
 const pages = readdirSync(DOCS).filter((f) => f.endsWith('.mdx') || f.endsWith('.md'))
 const expected = new Set()
@@ -78,6 +79,7 @@ for (const page of pages) {
     // and get no image, since there is nothing to render.
     if (/\binvalid\b/.test(meta)) continue
     const stem = `${basename(page).replace(/\.mdx?$/, '')}-${index}`
+    diagrams += 1
     const light = `${stem}.svg`
     const dark = `${stem}-dark.svg`
     expected.add(light)
@@ -152,7 +154,7 @@ if (CHECK) {
     for (const s of stale) console.error(`  ${s}`)
     process.exit(1)
   }
-  console.log(`All ${expected.size} diagram(s) up to date.`)
+  console.log(`All ${diagrams} diagram(s) up to date (${expected.size} files).`)
 } else {
-  console.log(`${expected.size} diagram(s); ${wrote} file(s) written.`)
+  console.log(`${diagrams} diagram(s); ${wrote} of ${expected.size} file(s) written.`)
 }

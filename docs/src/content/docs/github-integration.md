@@ -48,17 +48,39 @@ checked-in diagram renders with the same engine as anything you render in-app.
 
 ```bash
 # Fences inside markdown. Each fence in page.md becomes page-1.svg, page-2.svg, …
-npx --package=@liminis/diagrams -- render-c4 --from-markdown docs/architecture.md
+npx --package=@liminis/diagrams --package=react --package=react-dom -- \
+  render-c4 --from-markdown docs/architecture.md
 
 # A standalone file.
-npx --package=@liminis/diagrams -- render-c4 docs/architecture.puml
+npx --package=@liminis/diagrams --package=react --package=react-dom -- \
+  render-c4 docs/architecture.puml
 # docs/architecture.puml -> docs/architecture.svg
 
-npx --package=@liminis/diagrams -- render-c4 --dark docs/architecture.puml -o docs/architecture-dark.svg
-
 # Validate only — writes nothing, non-zero if anything fails to parse.
-npx --package=@liminis/diagrams -- render-c4 --check docs/**/*.puml
+npx --package=@liminis/diagrams --package=react --package=react-dom -- \
+  render-c4 --check docs/**/*.puml
 ```
+
+### Why react and react-dom are named on that command line
+
+The renderer builds the SVG with `react-dom/server`. React is an **optional peer**
+dependency, so that `./core` — parsing and layout — can be installed with no React
+anywhere near it, which is the whole reason the package is split. Optional peers are
+not installed automatically, so a bare
+`npx --package=@liminis/diagrams -- render-c4 …` runs in an environment that has the
+CLI but not what it renders with, and fails with `ERR_MODULE_NOT_FOUND: Cannot find
+package 'react-dom'`. Naming all three packages puts them in the same temporary install.
+
+**In a project that already depends on the package, none of this applies** — React is
+already there, and the CLI is on your path:
+
+```bash
+pnpm add -D @liminis/diagrams react react-dom
+pnpm render-c4 --from-markdown docs/architecture.md
+```
+
+That form is the better one for a repository that renders diagrams regularly: the
+version is in your lockfile rather than resolved afresh on every CI run.
 
 `--package=@liminis/diagrams --` is deliberate, not decoration: the package name
 (`diagrams`) doesn't match its bin name (`render-c4`), so plain
@@ -130,8 +152,10 @@ jobs:
       # otherwise turn this check red on a pull request that touched nothing.
       - name: Re-render diagrams
         run: |
-          npx --package=@liminis/diagrams@0.1.2 -- render-c4 --from-markdown $(git ls-files '*.md')
-          npx --package=@liminis/diagrams@0.1.2 -- render-c4 $(git ls-files '*.puml')
+          npx --package=@liminis/diagrams@0.1.2 --package=react --package=react-dom -- \
+            render-c4 --from-markdown $(git ls-files '*.md')
+          npx --package=@liminis/diagrams@0.1.2 --package=react --package=react-dom -- \
+            render-c4 $(git ls-files '*.puml')
 
       - name: Fail if any committed SVG is stale
         run: |
