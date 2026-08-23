@@ -3,8 +3,6 @@ title: "Playground"
 description: "A live C4 editor running the published package."
 ---
 
-import C4Playground from '../../components/C4Playground.tsx'
-
 Everything below runs the **published** `@liminis/diagrams` — it is a real registry
 dependency of this documentation site, exactly as it would be in your project. What you
 drag here is what `npm install` gives you.
@@ -14,7 +12,8 @@ drag here is what `npm install` gives you.
 Edit the source and the diagram follows. Parsing happens on every keystroke; there is no
 build step and no server involved.
 
-<C4Playground client:only="react" source={`Person(user, "User", "End user of the system")
+```c4
+Person(user, "User", "End user of the system")
 
 System_Boundary(platform, "Platform") {
   Container(web, "Web App", "React", "Delivers the UI")
@@ -27,7 +26,9 @@ System_Ext(mail, "Email Service", "SendGrid")
 Rel(user, web, "Uses", "HTTPS")
 Rel(web, api, "Calls", "JSON/HTTPS")
 Rel(api, db, "Reads/writes", "SQL")
-Rel(api, mail, "Sends via", "SMTP")`} />
+Rel(api, mail, "Sends via", "SMTP")
+```
+<img src="./diagrams/playground-1.svg" alt="Diagram 1 from playground.mdx" />
 
 Drag a node and the arrows re-route around it. Turn the checkbox off and the drag layer
 disappears entirely — that is `isEditMode`, and it is the host's decision, not the
@@ -49,6 +50,8 @@ Break the syntax — delete a closing brace, misspell `Rel` — and the parser r
 errors rather than throwing. This is `C4ErrorDisplay` rendering
 `ParseResult.errors` directly.
 
-<C4Playground client:only="react" editable={false} height="14rem" source={`Person(user, "User")
+```c4 editable=false height=14rem invalid
+Person(user, "User")
 System(app, "App")
-Rel(user, app, "Uses"`} />
+Rel(user, app, "Uses"
+```

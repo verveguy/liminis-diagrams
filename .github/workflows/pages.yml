@@ -76,6 +76,15 @@ jobs:
         working-directory: docs
         run: pnpm install --frozen-lockfile
 
+      # Fails if a committed SVG no longer matches the ```c4 fence it was
+      # rendered from. Those images are what GitHub shows -- github.com has no
+      # build step -- so a stale one is a wrong picture in the documentation,
+      # which is worse than no picture. Same guarantee fabrik gets from its
+      # docs-drift workflow.
+      - name: Check the rendered diagrams are current
+        working-directory: docs
+        run: pnpm diagrams:check
+
       - name: Build docs
         working-directory: docs
         run: pnpm build

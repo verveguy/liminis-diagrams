@@ -7,18 +7,21 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
-    "preview": "astro preview"
+    "preview": "astro preview",
+    "diagrams": "node scripts/render-diagrams.mjs",
+    "diagrams:check": "node scripts/render-diagrams.mjs --check"
   },
   "dependencies": {
     "@astrojs/react": "^4.2.1",
     "@astrojs/starlight": "^0.32.2",
+    "@liminis/diagrams": "^0.1.1",
     "astro": "^5.5.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "@liminis/diagrams": "^0.1.1"
+    "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.7",
-    "@types/react-dom": "^19.2.3"
+    "@types/react-dom": "^19.2.3",
+    "unist-util-visit": "^5.1.0"
   }
 }

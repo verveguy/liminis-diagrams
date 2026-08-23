@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 import react from '@astrojs/react'
+import { remarkC4 } from './src/plugins/remark-c4.mjs'
 
 // Served as a GitHub Pages project site. The account has a custom domain on the
 // user site, so this resolves to https://v3rv.com/liminis-diagrams/ rather than
@@ -12,6 +13,10 @@ import react from '@astrojs/react'
 // builds it, and Astro cannot see it, so links to it are external as far as the
 // link checker is concerned.
 export default defineConfig({
+  // Turns ```c4 fences into live islands. Files stay readable as markdown on
+  // GitHub, where the fence renders as a code block, and gain the interactive
+  // renderer here. See src/plugins/remark-c4.mjs.
+  markdown: { remarkPlugins: [remarkC4] },
   site: 'https://v3rv.com',
   base: '/liminis-diagrams',
   // React is here for embedded applets: a live C4 editor on the page that
