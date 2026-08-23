@@ -133,3 +133,69 @@ jobs:
           # The publish guard's deliberate opt-in. Scoped to this step, so no
           # other job in this repository can publish as a side effect.
           LIMINIS_ALLOW_PUBLISH: '1'
+
+  # Post-publish smoke test: install the package the way a person would.
+  #
+  # Everything above verifies the *artifact* — the tarball, its entry points, a
+  # peer-omitted install from a local pack. All of that passed for 0.1.0 while
+  # `npm install @liminis/diagrams` returned an empty 0.0.0 stub, because a
+  # placeholder version published to reserve the name declared no `engines` and
+  # 0.1.0 declares `>=22`, so npm's resolver quietly preferred the stub. The
+  # tarball was perfect; the command people actually type was broken.
+  #
+  # This job exists to catch that class, so two things about it are deliberate:
+  #
+  #   - It installs by **bare name**, not by version. Installing `pkg@x.y.z`
+  #     resolves the exact version and cannot observe shadowing at all.
+  #   - It runs on **Node 20, which is end-of-life and below this package's
+  #     `engines` floor** — on purpose. Shadowing only manifests *below* the
+  #     floor, so testing on a supported runtime would reproduce nothing. An
+  #     EBADENGINE warning here is expected and is not a failure.
+  #
+  # It runs after publishing, so it cannot prevent a bad release — it makes one
+  # visible in minutes rather than when the first person reports an empty import.
+  smoke:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install by bare name and check the resolved version
+        run: |
+          set -euo pipefail
+          NAME=$(node -p "require('./package.json').name")
+          WANT=$(node -p "require('./package.json').version")
+          echo "expecting $NAME@$WANT"
+
+          mkdir -p "$RUNNER_TEMP/smoke" && cd "$RUNNER_TEMP/smoke"
+          echo '{"name":"smoke","version":"1.0.0","private":true}' > package.json
+
+          # The registry is read-through-cached; a fresh publish can take a
+          # moment to be visible. Retry rather than flake.
+          for attempt in 1 2 3 4 5 6; do
+            rm -rf node_modules
+            npm install --no-audit --no-fund --omit=peer --prefer-online "$NAME" >/dev/null 2>&1 || true
+            GOT=$(node -p "require('$RUNNER_TEMP/smoke/node_modules/$NAME/package.json').version" 2>/dev/null || echo "none")
+            if [ "$GOT" = "$WANT" ]; then
+              echo "attempt $attempt: resolved $GOT — correct"
+              exit 0
+            fi
+            echo "attempt $attempt: resolved '$GOT', want '$WANT' — retrying in 20s"
+            sleep 20
+          done
+
+          echo
+          echo "FAILED: 'npm install $NAME' resolved to '$GOT', not '$WANT'."
+          echo "A lower version is shadowing this release for anyone below the"
+          echo "engines floor. Check for a placeholder version with no engines"
+          echo "field and unpublish it — the npm window is 72 hours."
+          npm view "$NAME" versions dist-tags || true
+          exit 1
