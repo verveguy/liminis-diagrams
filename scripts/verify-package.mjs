@@ -145,7 +145,18 @@ function parsePackOutput(raw) {
       `npm pack --json output did not parse (${err.message}). Raw:\n${raw.slice(0, 600)}`,
     )
   }
-  const entry = Array.isArray(parsed) ? parsed[0] : parsed
+  // Three shapes seen in the wild, all verified locally:
+  //   npm 10.8.2, 11.5.1  ->  [ { name, files: [...] } ]        top-level array
+  //   npm 12.0.2          ->  { "<pkg name>": { files: [...] } } keyed by package
+  // and an unwrapped object is accepted defensively in case a future major
+  // drops the wrapper entirely.
+  let entry = Array.isArray(parsed) ? parsed[0] : parsed
+  if (entry && !Array.isArray(entry.files)) {
+    const values = Object.values(entry).filter(
+      (v) => v && typeof v === 'object' && Array.isArray(v.files),
+    )
+    if (values.length === 1) entry = values[0]
+  }
   if (!entry || !Array.isArray(entry.files)) {
     throw new Error(
       `npm pack --json returned an unrecognised shape under npm ` +
