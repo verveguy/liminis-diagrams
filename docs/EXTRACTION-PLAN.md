@@ -207,8 +207,8 @@ And `liminis-editor` already depends on `micromark-extension-wiki-link`, so
 | 4 | Create the public GitHub repo, board it on project 5, push | **done** |
 | 5 | CI + release workflows | diagrams#1 — **done** |
 | 6 | Publish `0.1.0` (guarded) | diagrams#3 — **done**, [v0.1.0](https://github.com/verveguy/liminis-diagrams/releases/tag/v0.1.0) |
-| 7 | GitHub Pages demo app | diagrams#2 — blocked by #3 |
-| 8 | Editor PR: consume the package, keep the round-trip tests | editor#100 — blocked by #3 |
+| 7 | GitHub Pages demo app | diagrams#2 — unblocked |
+| 8 | Editor PR: consume the package, keep the round-trip tests | editor#100 — unblocked |
 | 9 | Wiki layer — §6b/6c/6d | not yet filed; can start any time |
 
 Live at https://github.com/verveguy/liminis-diagrams. The demo will serve from
