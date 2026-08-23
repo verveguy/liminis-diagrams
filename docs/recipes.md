@@ -109,9 +109,10 @@ requires.** It's included here as one concrete answer to "where would I actually
 this," not as this package's behavior.
 
 `@liminis/editor` stores positions in the **meta string of the markdown code fence**
-that holds the C4 source — the same place a fenced code block's language tag lives
-(` ```c4 meta-string-here `). On write, if there are any manual positions, it serializes
-them as `@layout ` followed by JSON:
+that holds the C4 source — the same place a fenced code block's language tag lives,
+as the text following the language on the fence's opening line (e.g. the part after
+`c4 ` in an opening fence tagged `c4`). On write, if there are any manual positions, it
+serializes them as `@layout ` followed by JSON:
 
 ```ts
 // verveguy/liminis-editor, src/app/mapper/lexicalToMdast.ts — convertC4Node()
