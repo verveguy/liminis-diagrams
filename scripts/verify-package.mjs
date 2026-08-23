@@ -117,8 +117,46 @@ for (const entry of ENTRY_POINTS) {
 step('Tarball — what actually ships')
 
 run('pnpm', ['run', 'build'], ROOT)
-const packJson = run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], ROOT)
-const packed = JSON.parse(packJson)[0]
+
+/**
+ * `npm pack --json` output is not stable across npm majors, and this script is
+ * run under two different ones: whatever the runner ships, and the pinned
+ * npm >= 11.5.1 that trusted publishing requires. Written against npm 10, it
+ * assumed a top-level array and died with `Cannot read properties of undefined`
+ * under npm 12 — failing the release for a defect in the check rather than in
+ * the package.
+ *
+ * So: tolerate both an array and a bare object, skip any non-JSON preamble, and
+ * if the shape is still unrecognised say so with the raw output attached rather
+ * than throwing a TypeError twenty lines later.
+ */
+function parsePackOutput(raw) {
+  const start = raw.search(/[[{]/)
+  if (start === -1) {
+    throw new Error(
+      `npm pack --json produced no JSON. npm ${run('npm', ['--version'], ROOT).trim()} said:\n${raw.slice(0, 600)}`,
+    )
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(raw.slice(start))
+  } catch (err) {
+    throw new Error(
+      `npm pack --json output did not parse (${err.message}). Raw:\n${raw.slice(0, 600)}`,
+    )
+  }
+  const entry = Array.isArray(parsed) ? parsed[0] : parsed
+  if (!entry || !Array.isArray(entry.files)) {
+    throw new Error(
+      `npm pack --json returned an unrecognised shape under npm ` +
+        `${run('npm', ['--version'], ROOT).trim()} — expected an object with a \`files\` array, ` +
+        `got keys [${entry ? Object.keys(entry).join(', ') : 'none'}]. Raw:\n${raw.slice(0, 600)}`,
+    )
+  }
+  return entry
+}
+
+const packed = parsePackOutput(run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], ROOT))
 const files = packed.files.map((f) => f.path)
 
 const leaked = files.filter(
