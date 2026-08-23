@@ -319,7 +319,12 @@ interface C4InteractiveSvgProps {
   isEditMode: boolean;
   draggedNodeId: string | null;
   svgRef: React.RefObject<SVGSVGElement | null>;
-  onNodeMouseDown: (nodeId: string, nodeX: number, nodeY: number, e: React.MouseEvent) => void;
+  onNodeMouseDown: (
+    nodeId: string,
+    nodeX: number,
+    nodeY: number,
+    e: React.PointerEvent | React.MouseEvent,
+  ) => void;
   legendInfo: { x: number; y: number; width: number; height: number } | null;
   legendPositionOverride: { x: number; y: number } | null;
 }
@@ -429,8 +434,15 @@ function C4InteractiveSvg({
                 stroke="transparent"
                 style={{
                   cursor: draggedNodeId === area.id ? 'grabbing' : 'grab',
+                  // Without this the browser claims the gesture for panning and
+                  // zooming before any pointermove reaches us, so a touch drag
+                  // scrolls the page instead of moving the node. `none` is
+                  // deliberate rather than `pan-y`: the hit area is a drag
+                  // target, and a partial allowance still lets the browser
+                  // steal the gesture mid-drag and fire pointercancel.
+                  touchAction: 'none',
                 }}
-                onMouseDown={(e) => onNodeMouseDown(area.id, area.x, area.y, e)}
+                onPointerDown={(e) => onNodeMouseDown(area.id, area.x, area.y, e)}
               />
             ))}
           </g>
