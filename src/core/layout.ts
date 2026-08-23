@@ -1008,9 +1008,16 @@ export function layoutC4Diagram(
     ...options,
   };
 
-  // Use manual layout if positions are provided
+  // Use manual layout if positions are provided. Rounded here rather than
+  // inside that function so the two layout paths cannot diverge on it: this is
+  // the branch the drag renderer takes, and the one `renderC4DiagramToSVG`
+  // takes when given `manualPositions`, so leaving it unrounded would have left
+  // the platform drift in place for exactly the diagrams a user had arranged
+  // by hand.
   if (manualPositions && Object.keys(manualPositions).length > 0) {
-    return layoutWithManualPositions(diagram, mergedOptions, manualPositions);
+    const manual = layoutWithManualPositions(diagram, mergedOptions, manualPositions);
+    roundGeometryInPlace(manual);
+    return manual;
   }
 
   const topLevelElements = getTopLevelElements(diagram.elements);
@@ -1054,8 +1061,8 @@ export function layoutC4Diagram(
   const result: LayoutResult = {
     nodes: allNodes,
     edges,
-    width: svgNumber(width),
-    height: svgNumber(height),
+    width,
+    height,
     viewBoxX: 0,
     viewBoxY: 0,
   };
@@ -1082,16 +1089,15 @@ export function layoutC4Diagram(
  * committed and diffed.
  */
 function roundGeometryInPlace(result: LayoutResult): void {
-  const roundNodes = (nodes: LayoutNode[]): void => {
-    for (const node of nodes) {
-      node.x = svgNumber(node.x);
-      node.y = svgNumber(node.y);
-      node.width = svgNumber(node.width);
-      node.height = svgNumber(node.height);
-      if (node.children) roundNodes(node.children);
-    }
-  };
-  roundNodes(result.nodes);
+  // `result.nodes` comes from flattenLayoutNodes, so it already contains every
+  // descendant — a node reached through `children` is the same object, and one
+  // pass over the flat list covers the tree.
+  for (const node of result.nodes) {
+    node.x = svgNumber(node.x);
+    node.y = svgNumber(node.y);
+    node.width = svgNumber(node.width);
+    node.height = svgNumber(node.height);
+  }
 
   for (const edge of result.edges) {
     edge.points = edge.points.map((point) => ({
@@ -1099,6 +1105,11 @@ function roundGeometryInPlace(result: LayoutResult): void {
       y: svgNumber(point.y),
     }));
   }
+
+  result.width = svgNumber(result.width);
+  result.height = svgNumber(result.height);
+  result.viewBoxX = svgNumber(result.viewBoxX);
+  result.viewBoxY = svgNumber(result.viewBoxY);
 }
 
 /**

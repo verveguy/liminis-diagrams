@@ -757,16 +757,23 @@ function EdgeComponent({ edge, colors }: EdgeComponentProps): JSX.Element {
   const edgeDx = points[points.length - 1].x - points[0].x;
   const edgeDy = points[points.length - 1].y - points[0].y;
 
-  // Rounded at the source rather than at the two places it is used, so the
-  // transform attribute and the label-clipping geometry agree on one angle.
-  // See svgNumber: atan2 is not bit-identical across platforms.
-  let angleDeg = svgNumber(Math.atan2(edgeDy, edgeDx) * (180 / Math.PI));
+  let angleDeg = Math.atan2(edgeDy, edgeDx) * (180 / Math.PI);
   if (angleDeg > 90) angleDeg -= 180;
   if (angleDeg < -90) angleDeg += 180;
   if (Math.abs(angleDeg) > 60) angleDeg = 0;
+  // Rounded after the normalisation and the cutoff, so those decisions are made
+  // on the same value as before, and once rather than at each of the two places
+  // the angle is used — the transform attribute and the label-clipping geometry
+  // must agree on one angle. See ../core/precision: atan2 is not bit-identical
+  // across platforms.
+  angleDeg = svgNumber(angleDeg);
 
-  const labelX = midpoint.x;
-  const labelY = midpoint.y;
+  // Halving a pair of rounded coordinates is exact arithmetic, so this is not a
+  // drift risk — but binary representation still turns 249.7775 into
+  // 249.77749999999997, which then appears three times in the output. Rounded
+  // so the transform and the tspan read as the number they are.
+  const labelX = svgNumber(midpoint.x);
+  const labelY = svgNumber(midpoint.y);
   const labelTransform = `rotate(${angleDeg}, ${labelX}, ${labelY})`;
 
   // Compute edge paths with label clipping
