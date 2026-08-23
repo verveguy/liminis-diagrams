@@ -23,6 +23,7 @@
 import type { JSX } from 'react';
 import type { LayoutResult, LayoutNode, LayoutEdge, Point } from '../core/types';
 import { buildClippedEdgePaths } from '../core/edge-clipping';
+import { svgNumber } from '../core/precision';
 
 // =============================================================================
 // CONSTANTS
@@ -106,7 +107,11 @@ function calculateArrowheadPoints(startPoint: Point, endPoint: Point): string {
   const baseX = endPoint.x - ux * ARROW_SIZE;
   const baseY = endPoint.y - uy * ARROW_SIZE;
   const halfW = ARROW_SIZE * 0.5;
-  return `${tipX},${tipY} ${baseX + px * halfW},${baseY + py * halfW} ${baseX - px * halfW},${baseY - py * halfW}`;
+  // Rounded here rather than left raw: these coordinates come out of a sqrt-
+  // normalised direction vector, and the SVG they land in gets committed. See
+  // ../core/precision.
+  const n = svgNumber;
+  return `${n(tipX)},${n(tipY)} ${n(baseX + px * halfW)},${n(baseY + py * halfW)} ${n(baseX - px * halfW)},${n(baseY - py * halfW)}`;
 }
 
 function shortenEdgeEnd(points: Point[]): Point[] {
@@ -752,7 +757,10 @@ function EdgeComponent({ edge, colors }: EdgeComponentProps): JSX.Element {
   const edgeDx = points[points.length - 1].x - points[0].x;
   const edgeDy = points[points.length - 1].y - points[0].y;
 
-  let angleDeg = Math.atan2(edgeDy, edgeDx) * (180 / Math.PI);
+  // Rounded at the source rather than at the two places it is used, so the
+  // transform attribute and the label-clipping geometry agree on one angle.
+  // See svgNumber: atan2 is not bit-identical across platforms.
+  let angleDeg = svgNumber(Math.atan2(edgeDy, edgeDx) * (180 / Math.PI));
   if (angleDeg > 90) angleDeg -= 180;
   if (angleDeg < -90) angleDeg += 180;
   if (Math.abs(angleDeg) > 60) angleDeg = 0;
@@ -789,7 +797,7 @@ function EdgeComponent({ edge, colors }: EdgeComponentProps): JSX.Element {
       );
     } else if (edge.isStepNumber || edge.isLegendRef) {
       // Circle/square shapes are opaque — no line clipping needed
-      edgePaths = [shortenedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')];
+      edgePaths = [shortenedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${svgNumber(p.x)} ${svgNumber(p.y)}`).join(' ')];
     } else {
       // Clip around text label
       const lines = splitEdgeLabel(label);
@@ -826,7 +834,7 @@ function EdgeComponent({ edge, colors }: EdgeComponentProps): JSX.Element {
       );
     }
   } else {
-    edgePaths = [shortenedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')];
+    edgePaths = [shortenedPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${svgNumber(p.x)} ${svgNumber(p.y)}`).join(' ')];
   }
 
   // Render label content

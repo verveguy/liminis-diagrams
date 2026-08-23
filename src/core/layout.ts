@@ -7,6 +7,7 @@
  */
 
 import dagre from '@dagrejs/dagre';
+import { svgNumber } from './precision';
 import type {
   C4Diagram,
   C4Element,
@@ -1050,14 +1051,54 @@ export function layoutC4Diagram(
   width += BOUNDARY_PADDING;
   height += BOUNDARY_PADDING;
 
-  return {
+  const result: LayoutResult = {
     nodes: allNodes,
     edges,
-    width,
-    height,
+    width: svgNumber(width),
+    height: svgNumber(height),
     viewBoxX: 0,
     viewBoxY: 0,
   };
+  roundGeometryInPlace(result);
+  return result;
+}
+
+/**
+ * Round every coordinate in a finished layout, in place.
+ *
+ * Done once here rather than at each of the ~80 places the renderer writes a
+ * coordinate into an attribute: the layout *is* the geometry, so producing it
+ * to a fixed precision means every consumer — the React renderer, the headless
+ * SVG serialiser, anything a host builds — inherits the same numbers without
+ * having to remember to round.
+ *
+ * In place rather than by copying, because a node appears both in the flat
+ * `nodes` list and in its parent's `children`, and rebuilding those would break
+ * the identity between them. `svgNumber` is idempotent, so visiting a node
+ * twice is harmless.
+ *
+ * See ./precision.ts for why this exists at all — the short version is that
+ * `atan2` is not bit-identical across platforms, and rendered SVGs get
+ * committed and diffed.
+ */
+function roundGeometryInPlace(result: LayoutResult): void {
+  const roundNodes = (nodes: LayoutNode[]): void => {
+    for (const node of nodes) {
+      node.x = svgNumber(node.x);
+      node.y = svgNumber(node.y);
+      node.width = svgNumber(node.width);
+      node.height = svgNumber(node.height);
+      if (node.children) roundNodes(node.children);
+    }
+  };
+  roundNodes(result.nodes);
+
+  for (const edge of result.edges) {
+    edge.points = edge.points.map((point) => ({
+      x: svgNumber(point.x),
+      y: svgNumber(point.y),
+    }));
+  }
 }
 
 /**
