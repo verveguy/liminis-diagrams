@@ -43,31 +43,23 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: demo/pnpm-lock.yaml
 
+      # Builds the demo and copies it to docs/public/demo, which Astro then
+      # copies into its own output — so the demo ships as part of the docs
+      # site rather than being assembled afterwards.
+      #
+      # This is the same command a developer runs, deliberately. The staged
+      # copy is gitignored, so a fresh checkout running `pnpm dev` served a 404
+      # for the /demo/ link on the docs homepage; `pnpm --dir docs demo` before
+      # `pnpm dev` now gives the deployed shape. A CI-only assembly step would
+      # have kept that divergence invisible until production.
+      #
       # demo/ is its own package, deliberately not a workspace member of the
-      # repo root — no pnpm-workspace.yaml exists here, which is what keeps
-      # its @liminis/diagrams dependency resolving from the registry instead
-      # of symlinking to ../src. Install and build it from inside demo/,
+      # repo root — no pnpm-workspace.yaml exists here, which is what keeps its
+      # @liminis/diagrams dependency resolving from the registry instead of
+      # symlinking to ../src. The script installs and builds from inside demo/,
       # never from the root.
-      - name: Install demo dependencies
-        working-directory: demo
-        run: pnpm install --frozen-lockfile
-
-      - name: Build demo
-        working-directory: demo
-        run: pnpm build
-
-      # The demo is served from the docs site's public/ directory, so Astro
-      # copies it into the output as part of its own build. That is the reason
-      # this is a copy rather than a post-build assembly step: `astro dev`
-      # serves public/ too, so the local dev server and the deployed site have
-      # the same shape. An assembly step would only exist in CI, and the first
-      # time they diverged nobody would find out until production.
       - name: Stage the demo inside the docs site
-        run: |
-          set -euo pipefail
-          rm -rf docs/public/demo
-          mkdir -p docs/public
-          cp -r demo/dist docs/public/demo
+        run: pnpm --dir docs demo
 
       # docs/ is its own package, for the same reason demo/ is: keeping the
       # Astro/Starlight toolchain out of the published package's dev install,

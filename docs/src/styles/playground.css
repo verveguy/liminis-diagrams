@@ -5,7 +5,7 @@
   border-radius: 0.5rem;
   overflow: hidden;
   margin: 1.5rem 0;
-  background: var(--sl-color-black);
+  background: var(--sl-color-bg);
 }
 .c4-playground__bar {
   display: flex;

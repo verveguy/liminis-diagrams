@@ -64,7 +64,7 @@ one of two orders:
 A macro whose "Boundary" column is yes is parsed the same as any other element, but a
 line ending in `{` opens a nested scope: every element macro up to the matching `}` gets
 `parent` set to this element's alias, and is also collected into this element's
-`children` array (see [`data-model.md`](/liminis-diagrams/data-model/) for how `parent`/`children`
+`children` array (see [the data model](../data-model/) for how `parent`/`children`
 relate). External elements (`_Ext` variants) get `properties.external = true`, which
 renderers use to draw the dashed "external system" style.
 

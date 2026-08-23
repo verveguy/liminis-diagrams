@@ -33,11 +33,19 @@ const OUT_REL = './diagrams'
 
 const CHECK = process.argv.includes('--check')
 
-// The <img> is identified by its src rather than by a marker comment. MDX does
-// not permit HTML comments at all -- `<!-- … -->` is a syntax error there, which
-// is how the first attempt broke the site. A self-closing <img /> is valid in
-// both MDX and GitHub-flavoured markdown, so it needs no marker.
-const IMG = new RegExp(`\\n?<img src="${OUT_REL}/[^"]+"[^>]*/>`, 'g')
+// The generated block is identified by the paths inside it rather than by a
+// marker comment. MDX does not permit HTML comments at all -- `<!-- … -->` is a
+// syntax error there, which is how the first attempt broke the site.
+//
+// It is a <picture>, not a bare <img>, because github.com has a dark theme and
+// these diagrams are opaque: a light-mode render is a white slab against a dark
+// page. GitHub honours <picture> with a prefers-color-scheme <source>, so both
+// renders are committed and the reader gets the one matching their theme.
+// Everything here is valid in MDX as well as GitHub-flavoured markdown.
+const GENERATED = new RegExp(`\\n?<picture>[\\s\\S]*?${OUT_REL}/[^"]+[\\s\\S]*?</picture>`, 'g')
+// Older single-<img> blocks, so a file written before this change is cleaned up
+// rather than accumulating a second block beside it.
+const LEGACY_IMG = new RegExp(`\\n?<img src="${OUT_REL}/[^"]+"[^>]*/>`, 'g')
 
 /** ```c4 [meta]\n …source… \n``` */
 const FENCE = /^```c4([^\n]*)\n([\s\S]*?)\n```$/gm
@@ -54,7 +62,7 @@ for (const page of pages) {
 
   // Start from a copy with any previously generated blocks removed, so the
   // markers never accumulate and the diff is stable across runs.
-  const cleaned = original.replace(IMG, '')
+  const cleaned = original.replace(GENERATED, '').replace(LEGACY_IMG, '')
 
   let index = 0
   let out = ''
@@ -69,33 +77,48 @@ for (const page of pages) {
     // one. Marked with `invalid`, they are skipped rather than failing the run,
     // and get no image, since there is nothing to render.
     if (/\binvalid\b/.test(meta)) continue
-    const name = `${basename(page).replace(/\.mdx?$/, '')}-${index}.svg`
-    expected.add(name)
+    const stem = `${basename(page).replace(/\.mdx?$/, '')}-${index}`
+    const light = `${stem}.svg`
+    const dark = `${stem}-dark.svg`
+    expected.add(light)
+    expected.add(dark)
 
-    const { svg, errors } = renderC4DiagramToSVG(source, false)
-    if (errors.length) {
-      console.error(`FAILED  ${page} diagram ${index}: ${errors.map((e) => e.message).join('; ')}`)
-      process.exitCode = 1
-      continue
-    }
+    let failed = false
+    for (const [name, isDark] of [
+      [light, false],
+      [dark, true],
+    ]) {
+      const { svg, errors } = renderC4DiagramToSVG(source, isDark)
+      if (errors.length) {
+        console.error(`FAILED  ${page} diagram ${index}: ${errors.map((e) => e.message).join('; ')}`)
+        process.exitCode = 1
+        failed = true
+        break
+      }
 
-    const target = join(OUT_DIR, name)
-    const current = existsSync(target) ? readFileSync(target, 'utf8') : null
-    if (current !== svg) {
-      if (CHECK) stale.push(`${OUT_REL}/${name}`)
-      else {
-        mkdirSync(OUT_DIR, { recursive: true })
-        writeFileSync(target, svg)
-        wrote += 1
+      const target = join(OUT_DIR, name)
+      const current = existsSync(target) ? readFileSync(target, 'utf8') : null
+      if (current !== svg) {
+        if (CHECK) stale.push(`${OUT_REL}/${name}`)
+        else {
+          mkdirSync(OUT_DIR, { recursive: true })
+          writeFileSync(target, svg)
+          wrote += 1
+        }
       }
     }
+    if (failed) continue
 
-    // The <img> goes immediately after the fence. GitHub shows both: the source
-    // and the picture. Alt text names the page rather than describing the
-    // diagram, because a generated description would be worse than none.
+    // The picture goes immediately after the fence. GitHub shows both: the
+    // source and the rendering. Alt text names the page rather than describing
+    // the diagram, because a generated description would be worse than none.
     const end = match.index + match[0].length
     out += cleaned.slice(last, end)
-    out += `\n<img src="${OUT_REL}/${name}" alt="Diagram ${index} from ${page}" />`
+    out +=
+      `\n<picture>` +
+      `<source media="(prefers-color-scheme: dark)" srcset="${OUT_REL}/${dark}" />` +
+      `<img src="${OUT_REL}/${light}" alt="Diagram ${index} from ${page}" />` +
+      `</picture>`
     last = end
   }
   out += cleaned.slice(last)

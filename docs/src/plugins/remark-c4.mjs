@@ -113,18 +113,33 @@ function importNode() {
 }
 
 /**
- * The generated `<img>` tags exist for GitHub, which has no build step. Here the
- * island renders the same diagram interactively, so showing both would be
- * duplication — they are stripped. See scripts/render-diagrams.mjs.
+ * The generated `<picture>` blocks exist for GitHub, which has no build step.
+ * Here the island renders the same diagram interactively, so showing both would
+ * be duplication — they are stripped. See scripts/render-diagrams.mjs.
  *
- * Identified by `src` rather than by a marker comment: MDX does not permit HTML
- * comments at all, so `<!-- … -->` is a syntax error rather than a marker.
+ * Identified by the paths inside them rather than by a marker comment: MDX does
+ * not permit HTML comments at all, so `<!-- … -->` is a syntax error rather than
+ * a marker.
+ *
+ * Bare `<img>` is still matched: a page written before the light/dark
+ * `<picture>` existed should lose its old block rather than keep it beside the
+ * island.
  */
+function referencesGeneratedDiagram(node) {
+  if (node.type !== 'mdxJsxFlowElement' && node.type !== 'mdxJsxTextElement') return false
+  return (node.attributes ?? []).some(
+    (a) =>
+      (a.name === 'src' || a.name === 'srcset') &&
+      typeof a.value === 'string' &&
+      a.value.includes('/diagrams/'),
+  )
+}
+
 function isGeneratedImage(node) {
   if (node.type !== 'mdxJsxFlowElement' && node.type !== 'mdxJsxTextElement') return false
-  if (node.name !== 'img') return false
-  const src = node.attributes?.find((a) => a.name === 'src')
-  return typeof src?.value === 'string' && src.value.includes('/diagrams/')
+  if (node.name === 'img') return referencesGeneratedDiagram(node)
+  if (node.name !== 'picture') return false
+  return (node.children ?? []).some(referencesGeneratedDiagram)
 }
 
 function stripRenderedImages(tree) {

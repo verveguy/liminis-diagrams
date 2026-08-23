@@ -74,7 +74,7 @@ Claude Code and don't want to stand up and host an MCP server.
 
 Whichever path you take, the actual rendering goes through `render-c4`
 (`@liminis/diagrams`'s bundled CLI — see
-[the GitHub integration page](/liminis-diagrams/github-integration/) for its full flag reference) or
+[the GitHub integration page](../github-integration/) for its full flag reference) or
 the `renderC4DiagramToSVG` function it wraps. Neither the skill nor the MCP tool
 reimplements any parsing or layout logic; they're both thin adapters onto the same
 engine this package already ships.

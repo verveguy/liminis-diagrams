@@ -8,6 +8,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "demo": "node scripts/stage-demo.mjs",
     "diagrams": "node scripts/render-diagrams.mjs",
     "diagrams:check": "node scripts/render-diagrams.mjs --check"
   },

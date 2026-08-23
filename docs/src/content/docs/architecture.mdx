@@ -70,10 +70,10 @@ Rel(srv, rct, "Renders through", "renderToStaticMarkup")
 Rel(rct, peers, "Needs at runtime")
 Rel(srv, peers, "Needs at runtime")
 ```
-<img src="./diagrams/architecture-1.svg" alt="Diagram 1 from architecture.mdx" />
+<picture><source media="(prefers-color-scheme: dark)" srcset="./diagrams/architecture-1-dark.svg" /><img src="./diagrams/architecture-1.svg" alt="Diagram 1 from architecture.mdx" /></picture>
 
 `./react` is presentational plus interaction (drag), and knows nothing about Lexical,
-editors, or persistence — see the [Limitations](/liminis-diagrams/#limitations--read-this-first)
+editors, or persistence — see the [Limitations](../#limitations--read-this-first)
 section for what that implies. `./server` is a thin wrapper that chains `./core`'s parse
 and layout with `./react`'s presentational renderer through `react-dom/server`, so a
 headless caller gets one function instead of three.
@@ -87,4 +87,4 @@ headless caller gets one function instead of three.
 - **Interactive UI, embedding the renderer in your own app, with or without drag** →
   `./react`. Needs `react` + `react-dom`, and a DOM (browser or jsdom/happy-dom).
 
-See [`recipes.md`](/liminis-diagrams/recipes/) for complete, runnable examples of the first two.
+See [Recipes](../recipes/) for complete, runnable examples of the first two.

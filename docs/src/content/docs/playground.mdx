@@ -28,7 +28,7 @@ Rel(web, api, "Calls", "JSON/HTTPS")
 Rel(api, db, "Reads/writes", "SQL")
 Rel(api, mail, "Sends via", "SMTP")
 ```
-<img src="./diagrams/playground-1.svg" alt="Diagram 1 from playground.mdx" />
+<picture><source media="(prefers-color-scheme: dark)" srcset="./diagrams/playground-1-dark.svg" /><img src="./diagrams/playground-1.svg" alt="Diagram 1 from playground.mdx" /></picture>
 
 Drag a node and the arrows re-route around it. Turn the checkbox off and the drag layer
 disappears entirely — that is `isEditMode`, and it is the host's decision, not the
@@ -42,7 +42,7 @@ and it is gone, because a docs page chose not to persist it.
 
 A real host decides differently. `@liminis/editor` writes positions into the markdown
 code fence's own meta string, which leaves a hand-arranged diagram sitting in plain,
-diffable text. See [Recipes](/liminis-diagrams/recipes/) for that pattern in full.
+diffable text. See [Recipes](../recipes/) for that pattern in full.
 
 ## Errors are data, not exceptions
 

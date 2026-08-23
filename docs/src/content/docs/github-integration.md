@@ -36,7 +36,7 @@ get editor syntax highlighting and the existing ecosystem for free.
 
 The compatibility is a subset, though. What is understood is the C4 macro vocabulary
 (`Person`, `System`, `Container`, `Component`, `Rel`, the boundary forms) — see the
-[C4-PlantUML reference](/liminis-diagrams/dsl-reference/). A `.puml` file that is a
+[C4-PlantUML reference](../dsl-reference/). A `.puml` file that is a
 sequence diagram, or one leaning on `skinparam` and general PlantUML styling, is not
 an error so much as not this tool's subject.
 

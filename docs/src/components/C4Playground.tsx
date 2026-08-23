@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { parseC4, validateC4 } from '@liminis/diagrams/core'
 import { C4InteractiveRenderer, C4ErrorDisplay } from '@liminis/diagrams/react'
@@ -20,7 +20,11 @@ import { useIsDarkMode } from './useIsDarkMode'
 export interface C4PlaygroundProps {
   /** Initial C4-PlantUML source. */
   source: string
-  /** Start with drag enabled. */
+  /**
+   * Whether the reader may drag nodes. `false` is a fixed illustration: drag is
+   * off and there is no control to turn it on. Anything else starts with drag
+   * enabled and offers the toggle.
+   */
   editable?: boolean
   /** Hide the source pane — for diagrams that illustrate rather than invite editing. */
   readOnly?: boolean
@@ -39,6 +43,8 @@ export default function C4Playground({
   const [isEditMode, setIsEditMode] = useState(editable)
   const [isExpanded, setIsExpanded] = useState(false)
   const isDark = useIsDarkMode()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const returnFocusTo = useRef<Element | null>(null)
 
   // Escape closes; the page behind must not scroll while the lightbox is open.
   //
@@ -47,15 +53,53 @@ export default function C4Playground({
   // on an iPad — a device this package's touch support exists for.
   useEffect(() => {
     if (!isExpanded) return
+
+    // Where focus came from, so closing puts it back rather than dumping the
+    // reader at the top of the document.
+    returnFocusTo.current = document.activeElement
+    const panel = panelRef.current
+    const focusable = () =>
+      Array.from(
+        panel?.querySelectorAll<HTMLElement>(
+          'button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => !el.hasAttribute('disabled'))
+
+    focusable()[0]?.focus()
+
+    // `aria-modal` promises the rest of the page is unreachable, and a promise
+    // the markup does not keep is worse than not making it: a keyboard user
+    // tabs into content hidden behind the backdrop with no way to tell where
+    // they are. Tab is cycled within the panel to make it true.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsExpanded(false)
+      if (e.key === 'Escape') {
+        setIsExpanded(false)
+        return
+      }
+      if (e.key !== 'Tab') return
+      const items = focusable()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement
+      if (e.shiftKey && (active === first || !panel?.contains(active))) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
     }
+
     window.addEventListener('keydown', onKey)
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     return () => {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = previous
+      // Guarded: the element may have been unmounted while the panel was open.
+      const target = returnFocusTo.current
+      if (target instanceof HTMLElement && target.isConnected) target.focus()
     }
   }, [isExpanded])
 
@@ -68,10 +112,11 @@ export default function C4Playground({
   }, [text])
 
   const positionCount = Object.keys(positions).length
-  const showSource = !readOnly || isExpanded
+  const showSource = !readOnly
 
   const panel = (
     <div
+      ref={panelRef}
       className={
         'c4-playground not-content' +
         (isExpanded ? ' c4-playground--expanded' : '') +
@@ -82,19 +127,31 @@ export default function C4Playground({
       aria-label={isExpanded ? 'C4 diagram, expanded' : undefined}
     >
       <div className="c4-playground__bar">
-        <label>
-          <input
-            type="checkbox"
-            checked={isEditMode}
-            onChange={(e) => setIsEditMode(e.target.checked)}
-          />{' '}
-          Drag to reposition
-        </label>
-        <button type="button" onClick={() => setPositions({})} disabled={positionCount === 0}>
-          Reset layout
-        </button>
+        {/* No toggle at all when the diagram is declared non-editable. Leaving
+            an enabled checkbox beside a "static" diagram let the reader switch
+            dragging back on, so the fence meta described something the
+            component did not enforce. */}
+        {editable && (
+          <label>
+            <input
+              type="checkbox"
+              checked={isEditMode}
+              onChange={(e) => setIsEditMode(e.target.checked)}
+            />{' '}
+            Drag to reposition
+          </label>
+        )}
+        {editable && (
+          <button type="button" onClick={() => setPositions({})} disabled={positionCount === 0}>
+            Reset layout
+          </button>
+        )}
         <span className="c4-playground__hint">
-          {positionCount > 0 ? `${positionCount} positions held in memory` : 'laid out by dagre'}
+          {!editable
+            ? 'laid out by dagre'
+            : positionCount > 0
+              ? `${positionCount} positions held in memory`
+              : 'laid out by dagre'}
         </span>
         <button
           type="button"
@@ -122,7 +179,7 @@ export default function C4Playground({
             <C4InteractiveRenderer
               diagram={parsed.diagram}
               isDarkMode={isDark}
-              isEditMode={isEditMode}
+              isEditMode={editable && isEditMode}
               manualPositions={positions}
               onPositionChange={setPositions}
             />
