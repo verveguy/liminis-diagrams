@@ -1,4 +1,7 @@
-# C4-PlantUML DSL reference
+---
+title: "C4-PlantUML DSL reference"
+description: "Which C4-PlantUML macros parse, and what is silently stripped."
+---
 
 What `parseC4` in `@liminis/diagrams/core` actually recognizes — derived directly from
 `ELEMENT_MACROS` and `REL_MACROS` in `src/core/parser.ts`, not from memory or the
@@ -61,7 +64,7 @@ one of two orders:
 A macro whose "Boundary" column is yes is parsed the same as any other element, but a
 line ending in `{` opens a nested scope: every element macro up to the matching `}` gets
 `parent` set to this element's alias, and is also collected into this element's
-`children` array (see [`data-model.md`](./data-model.md) for how `parent`/`children`
+`children` array (see [the data model](../data-model/) for how `parent`/`children`
 relate). External elements (`_Ext` variants) get `properties.external = true`, which
 renderers use to draw the dashed "external system" style.
 

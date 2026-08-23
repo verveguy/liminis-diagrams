@@ -6,7 +6,7 @@
  * meant for pre-rendering diagrams in CI so that a plain `![Diagram](x.svg)` in
  * a markdown file is enough for GitHub (or any other markdown renderer) to show
  * it — no live rendering service, no image-provider proxy, nothing to host.
- * See docs/github-integration.md for the recipe this exists for.
+ * See https://v3rv.com/liminis-diagrams/github-integration/ for the recipe this exists for.
  *
  * No dependency is added for argument parsing: flags are hand-rolled to match
  * the style of the other scripts in this repo (guard-publish.mjs,
@@ -20,6 +20,8 @@ import { renderC4DiagramToSVG } from '../server/render-to-string';
 
 export interface Options {
   files: string[];
+  /** Extract ```c4 fences from markdown inputs instead of treating the whole file as source. */
+  fromMarkdown: boolean;
   dark: boolean;
   out?: string;
   outDir?: string;
@@ -33,6 +35,8 @@ function printUsage(): void {
 Render C4-PlantUML source files to SVG.
 
 Options:
+  --from-markdown    Read fenced c4 blocks out of markdown inputs rather than
+                     treating each whole file as diagram source
   --dark             Render in dark mode
   -o, --out <file>   Output path (only valid with exactly one input file)
   --out-dir <dir>    Write outputs here, preserving basenames (.svg extension)
@@ -43,7 +47,7 @@ Options:
 }
 
 export function parseArgs(argv: string[]): Options | null {
-  const options: Options = { files: [], dark: false, check: false, stdin: false };
+  const options: Options = { files: [], fromMarkdown: false, dark: false, check: false, stdin: false };
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -53,6 +57,9 @@ export function parseArgs(argv: string[]): Options | null {
         return null;
       case '--dark':
         options.dark = true;
+        break;
+      case '--from-markdown':
+        options.fromMarkdown = true;
         break;
       case '--check':
         options.check = true;
@@ -109,7 +116,86 @@ export function validateStdinCombination(options: Options): string | null {
   return null;
 }
 
+/**
+ * ```c4 fences in a markdown file, with the 1-based line the fence body starts on
+ * so errors point at the real location in the file rather than at the snippet.
+ *
+ * Diagrams live in fenced blocks far more often than in standalone .puml files —
+ * that is how @liminis/editor stores them, how this package's own docs are
+ * written, and what a markdown-based diagram wiki produces. A renderer that only
+ * understood whole files would not fit the common case.
+ *
+ * A fence tagged `invalid` is skipped: a page documenting parse errors needs
+ * source that does not parse, and that is content rather than a defect.
+ */
+export function extractC4Fences(markdown: string): { source: string; line: number; index: number }[] {
+  const out: { source: string; line: number; index: number }[] = [];
+  const fence = /^```c4([^\n]*)\n([\s\S]*?)\n```$/gm;
+  let index = 0;
+  for (const match of markdown.matchAll(fence)) {
+    if (/\binvalid\b/.test(match[1] ?? '')) continue;
+    index++;
+    const before = markdown.slice(0, match.index ?? 0);
+    out.push({
+      source: match[2],
+      line: before.split('\n').length + 1,
+      index,
+    });
+  }
+  return out;
+}
+
+function renderMarkdownFences(options: Options): number {
+  let failures = 0;
+
+  for (const inputPath of options.files) {
+    let markdown: string;
+    try {
+      markdown = readFileSync(inputPath, 'utf-8');
+    } catch (err) {
+      failures++;
+      console.error(`${inputPath}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+
+    const fences = extractC4Fences(markdown);
+    if (fences.length === 0) continue;
+
+    for (const fence of fences) {
+      const { svg, errors } = renderC4DiagramToSVG(fence.source, options.dark);
+      if (errors.length > 0) {
+        failures++;
+        for (const error of errors) {
+          // Offset into the containing file, so the message is navigable.
+          console.error(`${inputPath}:${fence.line + error.line - 1}:${error.column}: ${error.message}`);
+        }
+        continue;
+      }
+      if (options.check) continue;
+
+      const base = basename(inputPath, extname(inputPath));
+      const svgName = `${base}-${fence.index}.svg`;
+      const outPath = options.outDir
+        ? join(options.outDir, svgName)
+        : join(dirname(inputPath), svgName);
+      try {
+        mkdirSync(dirname(outPath), { recursive: true });
+        writeFileSync(outPath, svg);
+      } catch (err) {
+        failures++;
+        console.error(`${inputPath}: failed to write ${outPath}: ${err instanceof Error ? err.message : String(err)}`);
+        continue;
+      }
+      console.log(`${inputPath} [${fence.index}] -> ${outPath}`);
+    }
+  }
+
+  return failures > 0 ? 2 : 0;
+}
+
 export function renderFiles(options: Options): number {
+  if (options.fromMarkdown) return renderMarkdownFences(options);
+
   if (options.out && options.files.length > 1) {
     console.error('render-c4: -o/--out only applies with a single input file');
     return 1;

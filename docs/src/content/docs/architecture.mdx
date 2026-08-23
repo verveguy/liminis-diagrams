@@ -1,4 +1,7 @@
-# Architecture: the entry-point boundary
+---
+title: "Architecture: the entry-point boundary"
+description: "Which entry point to install, and why ./server is not part of ./core."
+---
 
 `@liminis/diagrams` has four subpath exports. Which one(s) you install determines
 whether React ends up in your dependency tree at all.
@@ -40,21 +43,37 @@ point means a consumer who only wants `./core` never pays for React, even transi
 
 *(There's a deferred idea — not built — of a React-free SVG serializer that walks
 `LayoutResult` directly and would let `./core` own the whole parse→SVG path with dagre
-as its only dependency. See `EXTRACTION-PLAN.md` §2 if you're curious; it doesn't exist
-today.)*
+as its only dependency. It doesn't exist today.)*
 
 ## The three-layer stack
 
+Rendered by this package, from C4-PlantUML source — the same path any consumer takes.
+Drag a box if the automatic layout puts something awkwardly, or expand it for room.
+
+```c4 readOnly height=26rem
+Person(host, "Your tool", "A CLI, a CI job, a wiki, an editor")
+
+System_Boundary(pkg, "@liminis/diagrams") {
+  Container(core, "./core", "TypeScript", "parseC4, validateC4, layoutC4Diagram — no React")
+  Container(rct, "./react", "React", "C4Renderer, C4InteractiveRenderer, drag")
+  Container(srv, "./server", "react-dom/server", "renderC4DiagramToSVG")
+}
+
+System_Ext(dagre, "@dagrejs/dagre", "The only runtime dependency")
+System_Ext(peers, "react / react-dom", "Optional peer dependencies")
+
+Rel(host, core, "Parse and lay out", "no React on disk")
+Rel(core, dagre, "Lays out with")
+Rel(rct, core, "Consumes", "LayoutResult")
+Rel(srv, core, "Parses and lays out")
+Rel(srv, rct, "Renders through", "renderToStaticMarkup")
+Rel(rct, peers, "Needs at runtime")
+Rel(srv, peers, "Needs at runtime")
 ```
-./core    parseC4, validateC4, layoutC4Diagram        — @dagrejs/dagre only
-   ↓
-./react   C4Renderer, C4InteractiveRenderer, drag hook — + react
-   ↓
-./server  renderC4DiagramToSVG                         — + react-dom (renderToStaticMarkup)
-```
+<picture><source media="(prefers-color-scheme: dark)" srcset="./diagrams/architecture-1-dark.svg" /><img src="./diagrams/architecture-1.svg" alt="Diagram 1 from architecture.mdx" /></picture>
 
 `./react` is presentational plus interaction (drag), and knows nothing about Lexical,
-editors, or persistence — see the [Limitations](./README.md#limitations--read-this-first)
+editors, or persistence — see the [Limitations](../#limitations--read-this-first)
 section for what that implies. `./server` is a thin wrapper that chains `./core`'s parse
 and layout with `./react`'s presentational renderer through `react-dom/server`, so a
 headless caller gets one function instead of three.
@@ -68,4 +87,4 @@ headless caller gets one function instead of three.
 - **Interactive UI, embedding the renderer in your own app, with or without drag** →
   `./react`. Needs `react` + `react-dom`, and a DOM (browser or jsdom/happy-dom).
 
-See [`recipes.md`](./recipes.md) for complete, runnable examples of the first two.
+See [Recipes](../recipes/) for complete, runnable examples of the first two.

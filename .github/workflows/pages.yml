@@ -43,24 +43,62 @@ jobs:
           cache: 'pnpm'
           cache-dependency-path: demo/pnpm-lock.yaml
 
+      # Builds the demo and copies it to docs/public/demo, which Astro then
+      # copies into its own output — so the demo ships as part of the docs
+      # site rather than being assembled afterwards.
+      #
+      # This is the same command a developer runs, deliberately. The staged
+      # copy is gitignored, so a fresh checkout running `pnpm dev` served a 404
+      # for the /demo/ link on the docs homepage; `pnpm --dir docs demo` before
+      # `pnpm dev` now gives the deployed shape. A CI-only assembly step would
+      # have kept that divergence invisible until production.
+      #
       # demo/ is its own package, deliberately not a workspace member of the
-      # repo root — no pnpm-workspace.yaml exists here, which is what keeps
-      # its @liminis/diagrams dependency resolving from the registry instead
-      # of symlinking to ../src. Install and build it from inside demo/,
+      # repo root — no pnpm-workspace.yaml exists here, which is what keeps its
+      # @liminis/diagrams dependency resolving from the registry instead of
+      # symlinking to ../src. The script installs and builds from inside demo/,
       # never from the root.
-      - name: Install demo dependencies
-        working-directory: demo
+      - name: Stage the demo inside the docs site
+        run: pnpm --dir docs demo
+
+      # docs/ is its own package, for the same reason demo/ is: keeping the
+      # Astro/Starlight toolchain out of the published package's dev install,
+      # which CI runs for lint, typecheck and test on every pull request.
+      - name: Install docs dependencies
+        working-directory: docs
         run: pnpm install --frozen-lockfile
 
-      - name: Build demo
-        working-directory: demo
+      # Fails if a committed SVG no longer matches the ```c4 fence it was
+      # rendered from. Those images are what GitHub shows -- github.com has no
+      # build step -- so a stale one is a wrong picture in the documentation,
+      # which is worse than no picture. Same guarantee fabrik gets from its
+      # docs-drift workflow.
+      - name: Check the rendered diagrams are current
+        working-directory: docs
+        run: pnpm diagrams:check
+
+      - name: Build docs
+        working-directory: docs
         run: pnpm build
+
+      # Asserted rather than assumed: a base path disagreeing with where Pages
+      # serves it 404s every asset while the HTML still loads, which reads as a
+      # broken app rather than a broken deploy.
+      - name: Check the assembled layout
+        run: |
+          set -euo pipefail
+          test -f docs/dist/index.html      || { echo "docs index missing"; exit 1; }
+          test -f docs/dist/demo/index.html || { echo "demo index missing"; exit 1; }
+          grep -q '/liminis-diagrams/demo/assets/' docs/dist/demo/index.html \
+            || { echo "demo asset paths are not under /liminis-diagrams/demo/"; exit 1; }
+          grep -q '/liminis-diagrams/_astro/' docs/dist/index.html \
+            || { echo "docs asset paths are not under /liminis-diagrams/"; exit 1; }
 
       - name: Upload Pages artifact
         if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: demo/dist
+          path: docs/dist
 
   deploy:
     if: github.event_name == 'push'

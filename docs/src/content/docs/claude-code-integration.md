@@ -1,4 +1,7 @@
-# Rendering C4-PlantUML diagrams in Claude Code / Claude Desktop
+---
+title: Rendering diagrams in Claude Code
+description: Get Claude to render real C4 diagrams through this library — as a Claude Code skill, or as an MCP tool for any MCP-connected client.
+---
 
 Claude's Artifacts support a fixed set of natively-rendered content — HTML, SVG,
 Mermaid diagrams, React components, code — with no plugin mechanism to register a new
@@ -18,7 +21,7 @@ There are two ways to make that happen, and they compose — use either or both:
 
 ## 1. A Skill (what's shipped here)
 
-[`integrations/claude-code/skills/render-c4-diagram/`](../integrations/claude-code/skills/render-c4-diagram/)
+[`integrations/claude-code/skills/render-c4-diagram/`](https://github.com/verveguy/liminis-diagrams/blob/main/integrations/claude-code/skills/render-c4-diagram/)
 is a ready-to-copy Claude Code skill. It tells Claude: when you see C4-PlantUML source
 (a fenced ` ```c4 ` block, a `.puml` file, pasted text using `Person`/`System`/
 `Container`/`Rel` macros), pipe it through
@@ -42,7 +45,7 @@ is what the MCP tool below is for.
 For Claude Desktop, Claude.ai, or any other MCP-connected client — not just Claude
 Code — expose the renderer as an MCP tool instead of a shelled-out CLI. This library
 already has a consumer doing exactly that: the doc comment on
-[`renderC4DiagramToSVG`](../src/server/render-to-string.ts) notes it's "used by the
+[`renderC4DiagramToSVG`](https://github.com/verveguy/liminis-diagrams/blob/main/src/server/render-to-string.ts) notes it's "used by the
 `app_render_c4_diagram` MCP tool for Confluence publishing" in `@liminis/editor`. That
 tool isn't part of this repo, but the shape is a small wrapper:
 
@@ -71,7 +74,7 @@ Claude Code and don't want to stand up and host an MCP server.
 
 Whichever path you take, the actual rendering goes through `render-c4`
 (`@liminis/diagrams`'s bundled CLI — see
-[`docs/github-integration.md`](./github-integration.md) for its full flag reference) or
+[the GitHub integration page](../github-integration/) for its full flag reference) or
 the `renderC4DiagramToSVG` function it wraps. Neither the skill nor the MCP tool
 reimplements any parsing or layout logic; they're both thin adapters onto the same
 engine this package already ships.

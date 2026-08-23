@@ -5,7 +5,7 @@ name: CI
 # the extraction, and it is cheap to lose by accident. Deliberately no
 # reference to the repository this package came from appears in this file at
 # all, not even in a comment, so that "does CI reach outward?" stays a
-# one-line grep. The extraction itself is recorded in docs/EXTRACTION-PLAN.md.
+# one-line grep.
 
 on:
   pull_request:

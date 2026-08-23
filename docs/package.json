@@ -1,0 +1,28 @@
+{
+  "name": "@liminis/diagrams-docs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "//": "Its own package, mirroring demo/. Keeps the docs toolchain out of the published package's dev install, which CI runs for lint, typecheck and test on every pull request.",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "demo": "node scripts/stage-demo.mjs",
+    "diagrams": "node scripts/render-diagrams.mjs",
+    "diagrams:check": "node scripts/render-diagrams.mjs --check"
+  },
+  "dependencies": {
+    "@astrojs/react": "^4.2.1",
+    "@astrojs/starlight": "^0.32.2",
+    "@liminis/diagrams": "^0.1.2",
+    "astro": "^5.5.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "unist-util-visit": "^5.1.0"
+  }
+}
