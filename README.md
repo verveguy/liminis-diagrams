@@ -15,19 +15,15 @@ npm install @liminis/diagrams
 
 `react` and `react-dom` are **optional** peers. Installing the package gets you
 `@dagrejs/dagre` and nothing else, so `@liminis/diagrams/core` works in a CLI or CI job
-with no React on disk. Install the peers if you use `/react` or `/server`.
+with no React on disk. Install the peers if you use `/react` or `/server` — see
+[`docs/architecture.md`](docs/architecture.md) for why the split exists and which entry
+point to pick.
 
-## Entry points
+## Not sure this package does what you're assuming?
 
-| Import | Needs React | What it gives you |
-|---|---|---|
-| `@liminis/diagrams` | no | re-export of `/core` |
-| `@liminis/diagrams/core` | no | `parseC4`, `validateC4`, `layoutC4Diagram`, types |
-| `@liminis/diagrams/react` | yes | `C4Renderer`, `C4InteractiveRenderer`, `useC4DiagramDrag` |
-| `@liminis/diagrams/server` | yes | `renderC4DiagramToSVG` — source to SVG in one call |
-
-`/server` is DOM-free but not React-free: it drives the renderer through
-`react-dom/server`. That is the only reason it is not part of `/core`.
+Read [Limitations](docs/README.md#limitations--read-this-first) before you build
+against this package. In short: no editing UI, no persistence, element IDs aren't
+stable across diagrams, no cross-diagram links.
 
 ## Parse and lay out
 
@@ -45,6 +41,10 @@ System_Boundary(app, "My App") {
 Rel(user, fe, "Uses", "HTTPS")
 Rel(fe, db, "Reads/writes", "SQL")
 `);
+
+if (!diagram) {
+  throw new Error(`parse failed: ${JSON.stringify(errors)}`);
+}
 
 const layout = layoutC4Diagram(diagram);  // nodes, routed edges, width, height
 ```
@@ -75,15 +75,25 @@ import { C4InteractiveRenderer } from '@liminis/diagrams/react';
 ```
 
 Pass `manualPositions` to `layoutC4Diagram` to bypass dagre for the elements you have
-positions for. `@liminis/editor` persists them in the code fence's meta string as
-`@layout {"positions":{…}}`, which keeps a hand-arranged diagram in plain, diffable text.
+positions for. Persisting them is entirely your call — see
+[Recipe 3](docs/recipes.md#recipe-3-position-persistence--the-hosts-choice) for a worked
+example (including how `@liminis/editor` does it) and why this package itself never
+writes them anywhere.
 
 ## Supported syntax
 
-`Person`, `System`, `Container`, `Component` and their `_Ext` / `Db` / `Queue` variants;
-`System_Boundary`, `Container_Boundary`, `Enterprise_Boundary`, `Boundary`; `Rel` (with
-directional variants) and `BiRel`. `@startuml`/`@enduml`, `!include`, `SHOW_LEGEND()` and
-`LAYOUT_*` directives are recognised and stripped.
+`Person`, `System`, `Container`, `Component` and their `_Ext` / `Db` / `Queue` variants,
+plus `Deployment_Node`, `Node`, and `InfrastructureNode` variants; boundary macros;
+`Rel` (with directional variants) and `BiRel`. See
+[`docs/dsl-reference.md`](docs/dsl-reference.md) for the full macro table and exactly
+which directives (`@startuml`, `!include`, `SHOW_LEGEND()`, `LAYOUT_*`, …) are applied
+versus silently stripped.
+
+## Documentation
+
+Building a tool on top of this package? [`docs/`](docs/README.md) covers the
+entry-point boundary, the full DSL reference, the data model, and runnable recipes for
+headless rendering, embedding the interactive renderer, and position persistence.
 
 ## Provenance
 
