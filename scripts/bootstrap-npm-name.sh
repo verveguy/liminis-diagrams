@@ -122,6 +122,13 @@ MD
     *) echo "Aborted. Nothing was published."; exit 0 ;;
   esac
 
+  # --tag placeholder does NOT keep the stub off `latest` on a *first* publish:
+  # npm sets `latest` to the first version regardless, so both tags end up
+  # pointing at 0.0.0 and `npm install @liminis/diagrams` returns the empty
+  # stub until the first real release supersedes it. Observed on the 2026-08-23
+  # publish, which produced {"placeholder":"0.0.0","latest":"0.0.0"}. The tag is
+  # kept anyway: it is accurate, and it survives as a marker after 0.1.0 takes
+  # over `latest`.
   ( cd "$WORKDIR" && npm publish --access public --tag placeholder )
   ok "published ${PKG}@${STUB_VERSION}"
 fi
