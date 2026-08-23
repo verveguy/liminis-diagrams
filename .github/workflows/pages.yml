@@ -56,9 +56,22 @@ jobs:
         working-directory: demo
         run: pnpm build
 
-      # docs/ is likewise its own package, for the same reason demo/ is: keeping
-      # the Astro/Starlight toolchain out of the published package's dev
-      # install, which CI runs for lint, typecheck and test on every PR.
+      # The demo is served from the docs site's public/ directory, so Astro
+      # copies it into the output as part of its own build. That is the reason
+      # this is a copy rather than a post-build assembly step: `astro dev`
+      # serves public/ too, so the local dev server and the deployed site have
+      # the same shape. An assembly step would only exist in CI, and the first
+      # time they diverged nobody would find out until production.
+      - name: Stage the demo inside the docs site
+        run: |
+          set -euo pipefail
+          rm -rf docs/public/demo
+          mkdir -p docs/public
+          cp -r demo/dist docs/public/demo
+
+      # docs/ is its own package, for the same reason demo/ is: keeping the
+      # Astro/Starlight toolchain out of the published package's dev install,
+      # which CI runs for lint, typecheck and test on every pull request.
       - name: Install docs dependencies
         working-directory: docs
         run: pnpm install --frozen-lockfile
@@ -67,29 +80,24 @@ jobs:
         working-directory: docs
         run: pnpm build
 
-      # The site is the docs, with the demo nested one level down. The two build
-      # independently against different base paths -- '/liminis-diagrams/' and
-      # '/liminis-diagrams/demo/' -- so they are assembled here rather than by
-      # either build. If a base path and this layout ever disagree, every asset
-      # 404s while the HTML still loads, which reads as a broken app rather than
-      # a broken deploy, so the layout is asserted rather than assumed.
-      - name: Assemble the site
+      # Asserted rather than assumed: a base path disagreeing with where Pages
+      # serves it 404s every asset while the HTML still loads, which reads as a
+      # broken app rather than a broken deploy.
+      - name: Check the assembled layout
         run: |
           set -euo pipefail
-          rm -rf _site
-          cp -r docs/dist _site
-          mkdir -p _site/demo
-          cp -r demo/dist/. _site/demo/
-          test -f _site/index.html      || { echo "docs index missing"; exit 1; }
-          test -f _site/demo/index.html || { echo "demo index missing"; exit 1; }
-          grep -q '/liminis-diagrams/demo/assets/' _site/demo/index.html \
+          test -f docs/dist/index.html      || { echo "docs index missing"; exit 1; }
+          test -f docs/dist/demo/index.html || { echo "demo index missing"; exit 1; }
+          grep -q '/liminis-diagrams/demo/assets/' docs/dist/demo/index.html \
             || { echo "demo asset paths are not under /liminis-diagrams/demo/"; exit 1; }
+          grep -q '/liminis-diagrams/_astro/' docs/dist/index.html \
+            || { echo "docs asset paths are not under /liminis-diagrams/"; exit 1; }
 
       - name: Upload Pages artifact
         if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: _site
+          path: docs/dist
 
   deploy:
     if: github.event_name == 'push'

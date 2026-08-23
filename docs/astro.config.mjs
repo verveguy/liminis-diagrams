@@ -22,6 +22,7 @@ export default defineConfig({
   integrations: [
     react(),
     starlight({
+      customCss: ['./src/styles/playground.css'],
       title: '@liminis/diagrams',
       description:
         'C4 architecture diagrams for JavaScript: parse C4-PlantUML, lay out with dagre, render to SVG.',
@@ -34,6 +35,7 @@ export default defineConfig({
           label: 'Building on this package',
           items: [
             { label: 'Overview', link: '/' },
+            { label: 'Playground', link: '/playground/' },
             { label: 'Architecture', link: '/architecture/' },
             { label: 'C4-PlantUML reference', link: '/dsl-reference/' },
             { label: 'Data model', link: '/data-model/' },

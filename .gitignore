@@ -50,6 +50,7 @@ coverage/
 _site/
 
 # Astro/Starlight docs site (docs/ is its own package)
+docs/public/demo/
 docs/.astro/
 docs/dist/
 docs/node_modules/
