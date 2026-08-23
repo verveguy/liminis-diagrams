@@ -47,7 +47,7 @@ export default function App() {
           flexWrap: 'wrap',
         }}
       >
-        <strong>@liminis/diagrams demo</strong>
+        <h1 style={{ margin: 0, fontSize: '1rem' }}>@liminis/diagrams demo</h1>
 
         <label>
           Preset:{' '}
@@ -89,6 +89,7 @@ export default function App() {
 
       <main style={{ display: 'flex', flex: 1, minHeight: 0 }}>
         <textarea
+          aria-label="C4-PlantUML source"
           value={source}
           onChange={(e) => setSource(e.target.value)}
           spellCheck={false}
