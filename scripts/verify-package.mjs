@@ -34,6 +34,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'no
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parsePackOutput } from './pack-output.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 // Matched exactly, not by substring: `github.com/verveguy/liminis-diagrams` is
@@ -65,6 +66,17 @@ function run(cmd, args, cwd, opts = {}) {
 }
 
 const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+
+// Resolved once: the error paths all report it, and shelling out per message
+// risks them disagreeing if anything changes mid-run.
+const NPM_VERSION = run('npm', ['--version'], ROOT).trim()
+
+// `--no-build` is passed by ci.yml, which already runs `pnpm build` as its own
+// named step (FR-006 requires that). Without it the build runs twice in the same
+// job, roughly doubling the slowest part of it against a 10-minute timeout.
+// publish.yml does NOT pass it: there is no separate build step there, so this
+// script must produce the dist/ it packs.
+const SKIP_BUILD = process.argv.includes('--no-build')
 
 // ---------------------------------------------------------------------------
 step('Manifest — the fields the registry checks, not the ones tsc checks')
@@ -116,58 +128,13 @@ for (const entry of ENTRY_POINTS) {
 // ---------------------------------------------------------------------------
 step('Tarball — what actually ships')
 
-run('pnpm', ['run', 'build'], ROOT)
+if (!SKIP_BUILD) run('pnpm', ['run', 'build'], ROOT)
+else pass('build skipped (--no-build): the workflow built already')
 
-/**
- * `npm pack --json` output is not stable across npm majors, and this script is
- * run under two different ones: whatever the runner ships, and the pinned
- * npm >= 11.5.1 that trusted publishing requires. Written against npm 10, it
- * assumed a top-level array and died with `Cannot read properties of undefined`
- * under npm 12 — failing the release for a defect in the check rather than in
- * the package.
- *
- * So: tolerate both an array and a bare object, skip any non-JSON preamble, and
- * if the shape is still unrecognised say so with the raw output attached rather
- * than throwing a TypeError twenty lines later.
- */
-function parsePackOutput(raw) {
-  const start = raw.search(/[[{]/)
-  if (start === -1) {
-    throw new Error(
-      `npm pack --json produced no JSON. npm ${run('npm', ['--version'], ROOT).trim()} said:\n${raw.slice(0, 600)}`,
-    )
-  }
-  let parsed
-  try {
-    parsed = JSON.parse(raw.slice(start))
-  } catch (err) {
-    throw new Error(
-      `npm pack --json output did not parse (${err.message}). Raw:\n${raw.slice(0, 600)}`,
-    )
-  }
-  // Three shapes seen in the wild, all verified locally:
-  //   npm 10.8.2, 11.5.1  ->  [ { name, files: [...] } ]        top-level array
-  //   npm 12.0.2          ->  { "<pkg name>": { files: [...] } } keyed by package
-  // and an unwrapped object is accepted defensively in case a future major
-  // drops the wrapper entirely.
-  let entry = Array.isArray(parsed) ? parsed[0] : parsed
-  if (entry && !Array.isArray(entry.files)) {
-    const values = Object.values(entry).filter(
-      (v) => v && typeof v === 'object' && Array.isArray(v.files),
-    )
-    if (values.length === 1) entry = values[0]
-  }
-  if (!entry || !Array.isArray(entry.files)) {
-    throw new Error(
-      `npm pack --json returned an unrecognised shape under npm ` +
-        `${run('npm', ['--version'], ROOT).trim()} — expected an object with a \`files\` array, ` +
-        `got keys [${entry ? Object.keys(entry).join(', ') : 'none'}]. Raw:\n${raw.slice(0, 600)}`,
-    )
-  }
-  return entry
-}
-
-const packed = parsePackOutput(run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], ROOT))
+const packed = parsePackOutput(
+  run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], ROOT),
+  NPM_VERSION,
+)
 const files = packed.files.map((f) => f.path)
 
 const leaked = files.filter(
