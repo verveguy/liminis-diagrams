@@ -56,11 +56,40 @@ jobs:
         working-directory: demo
         run: pnpm build
 
+      # docs/ is likewise its own package, for the same reason demo/ is: keeping
+      # the Astro/Starlight toolchain out of the published package's dev
+      # install, which CI runs for lint, typecheck and test on every PR.
+      - name: Install docs dependencies
+        working-directory: docs
+        run: pnpm install --frozen-lockfile
+
+      - name: Build docs
+        working-directory: docs
+        run: pnpm build
+
+      # The site is the docs, with the demo nested one level down. The two build
+      # independently against different base paths -- '/liminis-diagrams/' and
+      # '/liminis-diagrams/demo/' -- so they are assembled here rather than by
+      # either build. If a base path and this layout ever disagree, every asset
+      # 404s while the HTML still loads, which reads as a broken app rather than
+      # a broken deploy, so the layout is asserted rather than assumed.
+      - name: Assemble the site
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          cp -r docs/dist _site
+          mkdir -p _site/demo
+          cp -r demo/dist/. _site/demo/
+          test -f _site/index.html      || { echo "docs index missing"; exit 1; }
+          test -f _site/demo/index.html || { echo "demo index missing"; exit 1; }
+          grep -q '/liminis-diagrams/demo/assets/' _site/demo/index.html \
+            || { echo "demo asset paths are not under /liminis-diagrams/demo/"; exit 1; }
+
       - name: Upload Pages artifact
         if: github.event_name == 'push'
         uses: actions/upload-pages-artifact@v5
         with:
-          path: demo/dist
+          path: _site
 
   deploy:
     if: github.event_name == 'push'

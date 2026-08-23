@@ -1,4 +1,7 @@
-# Data model
+---
+title: "Data model"
+description: "What a parsed diagram and a layout result actually contain."
+---
 
 This is the centerpiece of this documentation: the shapes a tool builder actually
 writes code against. Everything here is exported from `@liminis/diagrams/core`

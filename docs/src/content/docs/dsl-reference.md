@@ -1,4 +1,7 @@
-# C4-PlantUML DSL reference
+---
+title: "C4-PlantUML DSL reference"
+description: "Which C4-PlantUML macros parse, and what is silently stripped."
+---
 
 What `parseC4` in `@liminis/diagrams/core` actually recognizes — derived directly from
 `ELEMENT_MACROS` and `REL_MACROS` in `src/core/parser.ts`, not from memory or the

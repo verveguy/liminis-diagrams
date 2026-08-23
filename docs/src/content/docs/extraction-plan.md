@@ -1,4 +1,7 @@
-# Extracting the C4 subsystem from `liminis-editor`
+---
+title: "Extracting the C4 subsystem from liminis-editor"
+description: "Decision record for the extraction from @liminis/editor."
+---
 
 **Status:** complete. The extraction shipped as `@liminis/diagrams@0.1.0` and
 `liminis-editor` now consumes it. **This document is a record of the decisions, not a

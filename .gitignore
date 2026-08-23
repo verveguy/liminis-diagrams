@@ -47,3 +47,9 @@ coverage/
 .env
 .env.local
 *.local
+_site/
+
+# Astro/Starlight docs site (docs/ is its own package)
+docs/.astro/
+docs/dist/
+docs/node_modules/

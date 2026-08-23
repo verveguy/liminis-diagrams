@@ -1,4 +1,7 @@
-# Architecture: the entry-point boundary
+---
+title: "Architecture: the entry-point boundary"
+description: "Which entry point to install, and why ./server is not part of ./core."
+---
 
 `@liminis/diagrams` has four subpath exports. Which one(s) you install determines
 whether React ends up in your dependency tree at all.
@@ -40,7 +43,7 @@ point means a consumer who only wants `./core` never pays for React, even transi
 
 *(There's a deferred idea — not built — of a React-free SVG serializer that walks
 `LayoutResult` directly and would let `./core` own the whole parse→SVG path with dagre
-as its only dependency. See `EXTRACTION-PLAN.md` §2 if you're curious; it doesn't exist
+as its only dependency. See `extraction-plan.md` §2 if you're curious; it doesn't exist
 today.)*
 
 ## The three-layer stack
@@ -54,7 +57,7 @@ today.)*
 ```
 
 `./react` is presentational plus interaction (drag), and knows nothing about Lexical,
-editors, or persistence — see the [Limitations](./README.md#limitations--read-this-first)
+editors, or persistence — see the [Limitations](./index.md#limitations--read-this-first)
 section for what that implies. `./server` is a thin wrapper that chains `./core`'s parse
 and layout with `./react`'s presentational renderer through `react-dom/server`, so a
 headless caller gets one function instead of three.

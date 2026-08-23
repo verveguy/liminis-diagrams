@@ -1,4 +1,7 @@
-# Recipes
+---
+title: "Recipes"
+description: "Runnable examples: headless SVG, embedding the renderer, persisting positions."
+---
 
 Three complete, runnable integrations. Each was executed against this package's current
 `src/` and the output shown is what it actually produced — see the individual notes for

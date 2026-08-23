@@ -1,16 +1,22 @@
-# `@liminis/diagrams` documentation
+---
+title: "@liminis/diagrams documentation"
+description: "Documentation for building a tool on top of @liminis/diagrams."
+---
 
 This is documentation for someone building a tool *on top of* `@liminis/diagrams` —
 a CLI, a CI job, a wiki, a different editor. It answers the questions the top-level
-[`README.md`](../README.md) quick start doesn't: what the layout result contains, how
+[`README.md`](https://github.com/verveguy/liminis-diagrams#readme) quick start doesn't: what the layout result contains, how
 manual positions interact with dagre, what the parser accepts and silently discards,
 and which parts of a "C4 editing experience" live here versus in
 [`@liminis/editor`](https://github.com/verveguy/liminis-editor).
 
 If you want the story of *how* this package came to exist — what was extracted from
 `@liminis/editor`, what the move preserved, what it decided not to bring along — see
-[`EXTRACTION-PLAN.md`](./EXTRACTION-PLAN.md) instead. This directory is for using the
+[`extraction-plan.md`](./extraction-plan.md) instead. This directory is for using the
 package; that file is for its history.
+
+There is a **[live demo](/liminis-diagrams/demo/)** if you would rather see it than read about it — it
+runs the published package, so what you drag there is what you install.
 
 ## Limitations — read this first
 
@@ -28,13 +34,13 @@ until you've already built against it. Four things this package does **not** do:
 3. **Element IDs are fence-local.** `C4Element.id` is unique within one parsed diagram
    only. It carries no identity across two diagrams — two `System(app, ...)` blocks in
    different files have nothing connecting their `app` IDs. See
-   [EXTRACTION-PLAN.md §6b](./EXTRACTION-PLAN.md#6-what-the-extraction-does-not-give-you).
+   [extraction-plan.md §6b](./extraction-plan.md#6-what-the-extraction-does-not-give-you).
 4. **No cross-diagram link syntax.** There is no `Rel` that spans two diagrams, and no
    "this container is detailed in another diagram" relationship. You can't improvise one
    either: an unrecognized macro name is a parse error, not a silently-ignored no-op, and
    `!include` is recognized but stripped — the included file is never fetched or inlined.
    See
-   [EXTRACTION-PLAN.md §6c](./EXTRACTION-PLAN.md#6-what-the-extraction-does-not-give-you).
+   [extraction-plan.md §6c](./extraction-plan.md#6-what-the-extraction-does-not-give-you).
 
 ## Contents
 
