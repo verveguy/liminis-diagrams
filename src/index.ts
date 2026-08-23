@@ -8,6 +8,3 @@
  */
 
 export * from './core';
-
-const deliberateUnusedLintFailure = 1;
-
