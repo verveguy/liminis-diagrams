@@ -89,6 +89,17 @@ jobs:
       - name: Test
         run: pnpm test
 
+      # Verify the *artifact*, not the source tree. The steps above all passed
+      # for 0.1.0's first release attempt, which the registry then rejected
+      # (E422) because `package.json` had no `repository` field for provenance
+      # to match against the OIDC claim — after the tag had been cut and had to
+      # be deleted again. This step packs, installs and imports what a consumer
+      # actually gets, so that class of failure is caught here rather than at
+      # the registry. It restores the `verify:package` step this workflow was
+      # missing relative to @liminis/editor's, which is where it came from.
+      - name: Verify the package is publishable
+        run: pnpm verify:package
+
       # Refuse a release whose version does not match the tag it was cut from.
       # Without this, publishing from a stale branch quietly ships the wrong
       # version under the right tag.
