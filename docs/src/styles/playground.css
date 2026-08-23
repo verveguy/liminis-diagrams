@@ -43,8 +43,16 @@
   min-height: 100%;
 }
 .c4-playground__source:focus { outline: 2px solid var(--sl-color-accent); outline-offset: -2px; }
-.c4-playground__canvas { overflow: auto; padding: 0.5rem; display: flex; }
-.c4-playground__canvas svg { max-width: 100%; height: auto; margin: auto; }
+.c4-playground__canvas {
+  overflow: auto;
+  padding: 0.5rem;
+  display: flex;
+  /* Centre on both axes. `margin: auto` on the SVG alone leaves it top-weighted
+     once the pane is taller than the diagram, which the lightbox always is. */
+  align-items: center;
+  justify-content: center;
+}
+.c4-playground__canvas svg { max-width: 100%; height: auto; }
 
 /* Lightbox. The first attempt was inset:0 with no backdrop — a takeover, not a
    modal. The second used absolute + inset on the panel, which let the content

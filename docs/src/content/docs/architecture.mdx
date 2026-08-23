@@ -3,6 +3,8 @@ title: "Architecture: the entry-point boundary"
 description: "Which entry point to install, and why ./server is not part of ./core."
 ---
 
+import C4Playground from '../../components/C4Playground.tsx'
+
 `@liminis/diagrams` has four subpath exports. Which one(s) you install determines
 whether React ends up in your dependency tree at all.
 
@@ -48,13 +50,27 @@ today.)*
 
 ## The three-layer stack
 
-```
-./core    parseC4, validateC4, layoutC4Diagram        — @dagrejs/dagre only
-   ↓
-./react   C4Renderer, C4InteractiveRenderer, drag hook — + react
-   ↓
-./server  renderC4DiagramToSVG                         — + react-dom (renderToStaticMarkup)
-```
+Rendered by this package, from C4-PlantUML source — the same path any consumer takes.
+Drag a box if the automatic layout puts something awkwardly, or expand it for room.
+
+<C4Playground client:only="react" readOnly height="26rem" source={`Person(host, "Your tool", "A CLI, a CI job, a wiki, an editor")
+
+System_Boundary(pkg, "@liminis/diagrams") {
+  Container(core, "./core", "TypeScript", "parseC4, validateC4, layoutC4Diagram — no React")
+  Container(rct, "./react", "React", "C4Renderer, C4InteractiveRenderer, drag")
+  Container(srv, "./server", "react-dom/server", "renderC4DiagramToSVG")
+}
+
+System_Ext(dagre, "@dagrejs/dagre", "The only runtime dependency")
+System_Ext(peers, "react / react-dom", "Optional peer dependencies")
+
+Rel(host, core, "Parse and lay out", "no React on disk")
+Rel(core, dagre, "Lays out with")
+Rel(rct, core, "Consumes", "LayoutResult")
+Rel(srv, core, "Parses and lays out")
+Rel(srv, rct, "Renders through", "renderToStaticMarkup")
+Rel(rct, peers, "Needs at runtime")
+Rel(srv, peers, "Needs at runtime")`} />
 
 `./react` is presentational plus interaction (drag), and knows nothing about Lexical,
 editors, or persistence — see the [Limitations](./index.md#limitations--read-this-first)
