@@ -96,8 +96,16 @@ The check that matters is **not** "does the source parse". A diagram whose sourc
 perfectly can still be committed alongside an SVG rendered from an older version of it,
 and then the picture every reader sees on github.com is a lie that CI approved.
 
-So check for **drift** instead: re-render, and fail if the working tree changed. The
-rendering is deterministic, so a clean tree means every committed SVG is current.
+So check for **drift** instead: re-render, and fail if the working tree changed. A clean
+tree then means every committed SVG is current.
+
+That check only holds if the renderer is deterministic, which is worth being precise
+about. Rendering is a pure function of the source **for a given version of the
+package** — so pin the version in CI rather than letting `npx` resolve whatever is
+latest, or the check turns red on the day a release changes any coordinate. Across
+machines it is byte-identical from 0.1.2 onward; before that, `atan2` results differed
+by one unit in the last place between macOS and Linux, and the check would pass or fail
+depending on who last ran the renderer.
 
 ```yaml
 # .github/workflows/render-diagrams.yml
@@ -118,10 +126,12 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
 
+      # Pinned, not floating: a release that changes any coordinate would
+      # otherwise turn this check red on a pull request that touched nothing.
       - name: Re-render diagrams
         run: |
-          npx --package=@liminis/diagrams -- render-c4 --from-markdown $(git ls-files '*.md')
-          npx --package=@liminis/diagrams -- render-c4 $(git ls-files '*.puml')
+          npx --package=@liminis/diagrams@0.1.2 -- render-c4 --from-markdown $(git ls-files '*.md')
+          npx --package=@liminis/diagrams@0.1.2 -- render-c4 $(git ls-files '*.puml')
 
       - name: Fail if any committed SVG is stale
         run: |
