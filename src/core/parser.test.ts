@@ -5,7 +5,7 @@ describe('C4-PlantUML Parser', () => {
   describe('basic parsing', () => {
     it('should parse empty input', () => {
       const result = parseC4('');
-      expect(result.errors).toHaveLength(999); // deliberate SC-002 test failure
+      expect(result.errors).toHaveLength(0);
       expect(result.diagram).not.toBeNull();
       expect(result.diagram!.elements).toHaveLength(0);
       expect(result.diagram!.relationships).toHaveLength(0);
