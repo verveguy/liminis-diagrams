@@ -6,6 +6,7 @@
  */
 
 import type { Point } from './types';
+import { svgNumber } from './precision';
 
 // =============================================================================
 // CONSTANTS
@@ -152,14 +153,14 @@ export function buildClippedEdgePaths(
   const paths = visibleSegments
     .filter((seg) => seg.length >= 2)
     .map((seg) =>
-      seg.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
+      seg.map((p, i) => `${i === 0 ? 'M' : 'L'} ${svgNumber(p.x)} ${svgNumber(p.y)}`).join(' ')
     );
 
   // Fallback: if clipping consumed the entire edge, draw the original path
   // rather than leaving a floating arrowhead with no line
   if (paths.length === 0 && points.length >= 2) {
     return [
-      points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' '),
+      points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${svgNumber(p.x)} ${svgNumber(p.y)}`).join(' '),
     ];
   }
 
