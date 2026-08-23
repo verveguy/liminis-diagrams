@@ -1,0 +1,191 @@
+# C4-PlantUML DSL reference
+
+What `parseC4` in `@liminis/diagrams/core` actually recognizes — derived directly from
+`ELEMENT_MACROS` and `REL_MACROS` in `src/core/parser.ts`, not from memory or the
+[C4-PlantUML](https://github.com/plantuml-stdlib/C4-PlantUML) library's own docs. This is
+a **snapshot as of writing this doc** — there is no automated check keeping it in sync
+with `parser.ts`; if a macro is added or removed there later, this file can silently go
+stale. If something here disagrees with the parser, trust the parser.
+
+The parser is a hand-written line parser, not a full PlantUML grammar. It recognizes a
+fixed set of macro names; anything else on a line that isn't blank, a comment, or one of
+the directives below is reported as a parse error (`Unknown macro` / `Unrecognized
+syntax`) — it does not silently ignore arbitrary PlantUML.
+
+## Element macros (32 total)
+
+Every macro takes a leading unquoted `alias` (becomes `C4Element.id`), then arguments in
+one of two orders:
+
+- **`system`-style**: `(alias, "label", "description")`
+- **`detail`-style**: `(alias, "label", "technology", "description")`
+
+`label` becomes `C4Element.name`; `technology`/`description` (when present) become
+`properties.tech` / `properties.description`.
+
+| Macro | Element type | Shape | External | Arg order | Boundary (`{ }`)? |
+|---|---|---|---|---|---|
+| `Person` | person | rectangle | no | system | no |
+| `Person_Ext` | person | rectangle | **yes** | system | no |
+| `System` | system | rectangle | no | system | no |
+| `System_Ext` | system | rectangle | **yes** | system | no |
+| `SystemDb` | system | cylinder | no | system | no |
+| `SystemDb_Ext` | system | cylinder | **yes** | system | no |
+| `SystemQueue` | system | queue | no | system | no |
+| `SystemQueue_Ext` | system | queue | **yes** | system | no |
+| `Container` | container | rectangle | no | detail | no |
+| `Container_Ext` | container | rectangle | **yes** | detail | no |
+| `ContainerDb` | container | cylinder | no | detail | no |
+| `ContainerDb_Ext` | container | cylinder | **yes** | detail | no |
+| `ContainerQueue` | container | queue | no | detail | no |
+| `ContainerQueue_Ext` | container | queue | **yes** | detail | no |
+| `Component` | component | rectangle | no | detail | no |
+| `Component_Ext` | component | rectangle | **yes** | detail | no |
+| `ComponentDb` | component | cylinder | no | detail | no |
+| `ComponentDb_Ext` | component | cylinder | **yes** | detail | no |
+| `ComponentQueue` | component | queue | no | detail | no |
+| `ComponentQueue_Ext` | component | queue | **yes** | detail | no |
+| `System_Boundary` | system | rectangle | no | system | **yes** |
+| `Container_Boundary` | container | rectangle | no | system | **yes** |
+| `Enterprise_Boundary` | system | rectangle | no | system | **yes** |
+| `Boundary` | system | rectangle | no | system | **yes** |
+| `Deployment_Node` | system | rectangle | no | detail | **yes** |
+| `Deployment_Node_L` | system | rectangle | no | detail | **yes** |
+| `Deployment_Node_R` | system | rectangle | no | detail | **yes** |
+| `Node` | system | rectangle | no | detail | **yes** |
+| `Node_L` | system | rectangle | no | detail | **yes** |
+| `Node_R` | system | rectangle | no | detail | **yes** |
+| `InfrastructureNode` | component | rectangle | no | detail | no |
+| `InfrastructureNode_Ext` | component | rectangle | **yes** | detail | no |
+
+A macro whose "Boundary" column is yes is parsed the same as any other element, but a
+line ending in `{` opens a nested scope: every element macro up to the matching `}` gets
+`parent` set to this element's alias, and is also collected into this element's
+`children` array (see [`data-model.md`](./data-model.md) for how `parent`/`children`
+relate). External elements (`_Ext` variants) get `properties.external = true`, which
+renderers use to draw the dashed "external system" style.
+
+**Verified example** — parsing all six deployment/infrastructure macros (this
+combination has no prior test coverage in the package, so this doc is the first time
+these argument orders were exercised end-to-end):
+
+```ts
+parseC4(`
+Deployment_Node(dn, "Deployment Node", "AWS")
+Node(nd, "Node", "K8s")
+InfrastructureNode(inf, "Infra Node", "Nginx")
+InfrastructureNode_Ext(infe, "Infra Node Ext", "CDN")
+`)
+```
+
+produces (trimmed):
+
+```json
+[
+  { "type": "system", "id": "dn", "name": "Deployment Node",
+    "properties": { "style": "boundary", "tech": "AWS" } },
+  { "type": "system", "id": "nd", "name": "Node",
+    "properties": { "style": "boundary", "tech": "K8s" } },
+  { "type": "component", "id": "inf", "name": "Infra Node",
+    "properties": { "tech": "Nginx" } },
+  { "type": "component", "id": "infe", "name": "Infra Node Ext",
+    "properties": { "external": true, "tech": "CDN" } }
+]
+```
+
+Note the third argument (`"AWS"`, `"K8s"`, `"Nginx"`) lands in `properties.tech`, not
+`description` — these are all `detail`-style macros, so the third positional argument is
+technology, and a fourth argument would be description.
+
+## Relationship macros
+
+`Rel` and its variants all take `(source, target, "label", "technology")` — `technology`
+is optional. If present, the rendered label becomes `"label [technology]"`.
+
+| Macro | Meaning |
+|---|---|
+| `Rel` | Generic relationship, source → target |
+| `Rel_D`, `Rel_U`, `Rel_L`, `Rel_R` | Same as `Rel`; the suffix is a PlantUML layout hint (down/up/left/right) that this parser does not use — it affects nothing here |
+| `Rel_Back` | Semantically source → target, drawn as if reversed in PlantUML; this parser stores it identically to `Rel` |
+| `Rel_Neighbor` | Same as `Rel`, for elements PlantUML would otherwise place far apart; no effect here |
+| `BiRel`, `BiRel_D`, `BiRel_U`, `BiRel_L`, `BiRel_R` | Bidirectional; stored identically to `Rel` — this package does not render a bidirectional arrowhead differently |
+
+**Verified example:**
+
+```ts
+parseC4(`
+Person(a, "A")
+Person(b, "B")
+Rel(a, b, "Label only")
+Rel_D(a, b, "Down label", "tech")
+BiRel(a, b, "Bi label", "tech2")
+`)
+```
+
+produces:
+
+```json
+[
+  { "sourceId": "a", "targetId": "b", "label": "Label only" },
+  { "sourceId": "a", "targetId": "b", "label": "Down label [tech]" },
+  { "sourceId": "a", "targetId": "b", "label": "Bi label [tech2]" }
+]
+```
+
+All three collapse to the same `C4Relationship` shape — the directional/bidirectional
+distinction in the macro name has no effect on the parsed output.
+
+## Directives: what's recognized-and-applied vs. recognized-and-stripped
+
+Not everything the parser recognizes is inert. `LAYOUT_TOP_DOWN` and `LAYOUT_LEFT_RIGHT`
+genuinely change the rendered diagram — they set `C4Diagram.direction`, which
+`layoutC4Diagram` passes to dagre as `rankdir`. Everything else in this table is parsed
+and thrown away.
+
+| Directive | Effect |
+|---|---|
+| `LAYOUT_TOP_DOWN()` | **Applied.** Sets `diagram.direction = 'down'` → dagre `rankdir: 'TB'` (also the default with no directive) |
+| `LAYOUT_LEFT_RIGHT()` | **Applied.** Sets `diagram.direction = 'right'` → dagre `rankdir: 'LR'` |
+| `@startuml`, `@enduml` | Recognized, stripped — no effect |
+| `!include ...` | Recognized, stripped — the included file's content is never fetched or inlined |
+| `!define ...` | Recognized, stripped |
+| `SHOW_LEGEND()` and other `SHOW_*` macros | Recognized, stripped — this package always draws its own legend logic, independent of this directive |
+| `HIDE_*` macros | Recognized, stripped |
+| `title ...` | Recognized, stripped |
+
+**Verified example** — confirming `LAYOUT_LEFT_RIGHT` changes rendered positions, not
+just the parsed AST:
+
+```ts
+const { diagram } = parseC4(`
+LAYOUT_LEFT_RIGHT()
+Person(user, "User", "End user")
+System(app, "App", "Main app")
+Rel(user, app, "Uses")
+`);
+// diagram.direction === 'right'
+
+const layout = layoutC4Diagram(diagram);
+// user: { x: 40,  y: 40 }
+// app:  { x: 260, y: 53 }   ← to the right of user, not below it
+```
+
+And confirming the genuinely inert directives really are stripped with zero effect on
+the parsed element count:
+
+```ts
+parseC4(`
+@startuml
+!include https://example.com/C4_Context.puml
+SHOW_LEGEND()
+title Some Title
+Person(user, "User", "End user")
+@enduml
+`)
+// errors: []
+// elements.length === 1   (just "user" — every directive line contributed nothing)
+```
+
+Any macro name not in the tables above (element or relationship) produces an `Unknown
+macro` parse error — the parser does not silently accept arbitrary C4-PlantUML syntax
+beyond what's listed here.
