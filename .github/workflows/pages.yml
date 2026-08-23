@@ -1,0 +1,87 @@
+# Deploy the demo/ app to GitHub Pages.
+#
+# Triggers on push to main, not on release like verveguy/liminis-editor's
+# equivalent workflow. That's deliberate, not an oversight: demo/ consumes
+# @liminis/diagrams from the npm registry rather than from ../src (see
+# demo/package.json), which makes it a continuous consumer-integration test
+# of the published package, not just a showcase. Deploying only on release
+# would mean a broken publish (wrong `files`, a stale `exports` map, a
+# missing entry point) could sit undetected until the next release cut.
+# Triggering on every push to main surfaces that immediately. A failed
+# deploy leaves the previously-published Pages content live rather than
+# tearing it down, so this can't blank the site — it only fails CI until
+# fixed.
+#
+# Also builds (but does not deploy) on pull_request, so a broken demo is
+# caught in review rather than only after merge.
+name: pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'pnpm'
+          cache-dependency-path: demo/pnpm-lock.yaml
+
+      # demo/ is its own package, deliberately not a workspace member of the
+      # repo root — no pnpm-workspace.yaml exists here, which is what keeps
+      # its @liminis/diagrams dependency resolving from the registry instead
+      # of symlinking to ../src. Install and build it from inside demo/,
+      # never from the root.
+      - name: Install demo dependencies
+        working-directory: demo
+        run: pnpm install --frozen-lockfile
+
+      - name: Build demo
+        working-directory: demo
+        run: pnpm build
+
+      - name: Upload Pages artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: demo/dist
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      pages: write
+      id-token: write
+
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/configure-pages@v6
+
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -24,6 +24,11 @@ export default tseslint.config(
       'dist/**',
       'coverage/**',
       'examples/**',
+      // Standalone Vite app with its own toolchain and tsconfig, resolving
+      // `@liminis/diagrams` from the registry rather than this project's
+      // source — outside this config's tsconfig project for the same reason
+      // `examples/**` is.
+      'demo/**',
       // Plain Node ESM build tooling, deliberately outside the TypeScript
       // project. The type-aware parser cannot resolve them to a tsconfig, so
       // linting them is a parser error rather than a finding.
