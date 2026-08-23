@@ -1,7 +1,10 @@
 # Extracting the C4 subsystem from `liminis-editor`
 
-**Status:** steps 1–3 done (see §7). Package builds, 106 tests green.
-**Date:** 2026-08-22
+**Status:** complete. The extraction shipped as `@liminis/diagrams@0.1.0` and
+`liminis-editor` now consumes it. **This document is a record of the decisions, not a
+status board** — for current state, see the GitHub Project (`verveguy` project 5) and the
+repository's issues.
+**Date:** 2026-08-22, retained as written except where noted
 **Decisions taken:** new repo as source of truth (editor becomes a consumer); one package,
 `@liminis/diagrams`, with `./core` / `./react` / `./server` subpath exports.
 **Baseline:** `liminis-editor` @ `origin/main` = `be88da1` (0.3.0); C4 unchanged there since
@@ -197,59 +200,65 @@ And `liminis-editor` already depends on `micromark-extension-wiki-link`, so
 
 ---
 
-## 7. Sequence
+## 7. Sequencing, and what it taught
 
-| # | Step | Status |
-|---|---|---|
-| 1 | Scaffold workspace, mirror editor tooling | **done** |
-| 2 | Recover history, restructure, fix imports, green tests | **done** — 101 commits, 106 tests |
-| 3 | `styles.css` layer-class question | **done** — see below |
-| 4 | Create the public GitHub repo, board it on project 5, push | **done** |
-| 5 | CI + release workflows | diagrams#1 — **done** |
-| 6 | Publish `0.1.0` (guarded) | diagrams#3 — **done**, [v0.1.0](https://github.com/verveguy/liminis-diagrams/releases/tag/v0.1.0) |
-| 7 | GitHub Pages demo app | diagrams#2 — unblocked |
-| 8 | Editor PR: consume the package, keep the round-trip tests | editor#100 — unblocked |
-| 9 | Wiki layer — §6b/6c/6d | not yet filed; can start any time |
+**There is deliberately no status table here any more.** There was one, and it caused a
+concrete problem: issue #3's PR edited it to record #3's own progress, which the pipeline
+then advanced, making the table stale again — so the reviewer flagged it, the worker
+"fixed" it, and that push invalidated the review it was waiting on. Several rounds of
+that before it was merged by hand. A document that tracks in-flight state, inside a PR
+that changes that state, cannot reach a fixed point.
 
-Live at https://github.com/verveguy/liminis-diagrams. The demo will serve from
-**https://v3rv.com/liminis-diagrams/** — this account's Pages sites are served through an
+The board is the board. This file records *decisions*, which do not change once taken.
+
+The ordering that mattered, and why:
+
+- **The demo builds against the published npm package, not `../src`.** That is why it was
+  sequenced behind the release rather than run in parallel: it makes the demo a continuous
+  consumer-integration test, so a broken `exports` map or a mis-specified `files` breaks
+  the demo build instead of surfacing months later in someone else's project. The cost is
+  that the demo lags the source by a release.
+- **Load-bearing detail: this repo must not gain a `pnpm-workspace.yaml`.** pnpm would
+  resolve `@liminis/diagrams` to local source through a symlink and that guarantee would
+  evaporate silently, with everything still appearing to work.
+- **The editor migration had to be `blocked_by` the publish**, wired through the
+  dependencies API *before* the issue reached Specify. An Implement worker that starts
+  before the package resolves from npm fails on install and burns its retries.
+- **The `styles.css` question turned out to need no work.** The four `*-layer` class names
+  are only ever SVG group selectors and carry no styling this package depends on; the
+  editor's 18 c4 lines style the *editor's* wrapper. A consumer needs no stylesheet — the
+  renderer is inline-styled.
+
+**Pages URL, since it is easy to get wrong:** the demo serves from
+**https://v3rv.com/liminis-diagrams/**. This account's Pages sites go through an
 account-wide custom domain configured on the user site, so project pages are
 `v3rv.com/<repo>/`, not `verveguy.github.io/<repo>/`. Each project repo reports
-`https_enforced: false` with `cname: null` because the domain is inherited; that flag
-governs the http→https *redirect* only, not whether https works. It does — verified 200 on
-the sibling repos. Always link the `https://` form.
+`https_enforced: false` with `cname: null` because the domain is inherited — that flag
+governs the http→https *redirect* only, not whether https works. It does. Always link the
+`https://` form.
 
-**The demo builds against the published npm package, not `../src`** (Brett's call). That
-is why #2 sits behind #6 rather than running in parallel: it makes the demo a continuous
-consumer-integration test, so a broken `exports` map or a mis-specified `files` breaks the
-demo build instead of surfacing months later in someone else's project. The cost is that
-the demo lags the source by a release. Load-bearing detail: **this repo must not gain a
-`pnpm-workspace.yaml`**, or pnpm will resolve `@liminis/diagrams` to local source through a
-symlink and the guarantee evaporates silently.
-
-On step 3: the four `*-layer` class names are only ever used as SVG group selectors and
-carry no styling this package depends on — the editor's 18 c4 lines in `styles.css` style
-the *editor's* wrapper, not the diagram. Nothing needed to move. A consumer needs no
-stylesheet; the renderer is inline-styled.
-
-Steps 5–8 are Fabrik work. The board (`verveguy` project 5) is multi-repo — `repo:` is
-unset in `.fabrik/config.yaml` — so issues in `liminis-diagrams` and `liminis-editor`
-run on the one board. Step 7 **must** carry a `blocked_by` edge to step 6, wired via the
-dependencies API *before* the issue reaches Specify: an Implement worker that starts
-before `@liminis/diagrams` resolves from npm will fail on install and burn its retries.
+The board (`verveguy` project 5) is multi-repo — `repo:` is unset in
+`.fabrik/config.yaml` — so `liminis-diagrams` and `liminis-editor` issues run on the one
+board. Two of the smaller changes were done as direct PRs rather than through the
+pipeline, which was the right call: a one-field manifest fix does not warrant six stages.
 
 ## 8. Open questions
 
-1. **Repo name vs package names.** Repo is `liminis-diagrams` (plural, generic) but
-   the packages are `@liminis/diagrams`. If the suite is ever to host non-C4 notations,
-   the repo name is right and the package names are right. If it is C4-only forever,
-   consider `liminis-c4`. Naming now is cheaper than renaming later.
-2. **Does the mermaid path come too?** The editor also carries `mermaid` for other
-   diagram fences. Out of scope here, but a "diagram wiki" will be asked for it.
-3. **Is `DiagramContextMenu` in scope?** It is Lexical-free and useful (copy-to-clipboard),
-   but it also pulls `lucide-react`. Recommend: move it, accept the icon dep in
-   `./react`, since a standalone tool wants a context menu anyway.
-4. **License.** MIT, carried from the editor. Say so if you intend otherwise.
-5. **Local dev link.** Not yet set up. Once the editor consumes the package, a workspace
-   link is needed or every C4 change becomes a publish round-trip. This is the one real
-   ongoing cost of the "editor consumes it" decision.
+Two of the five are resolved; they are kept rather than deleted so the reasoning is
+recoverable.
+
+1. ~~**Repo name vs package name.**~~ **Resolved:** repo `liminis-diagrams`, package
+   `@liminis/diagrams`. The generic name leaves room for non-C4 notations; the C4-specific
+   surface is namespaced by its export names (`parseC4`, `C4Renderer`) rather than by the
+   package name.
+2. **Does the mermaid path come too?** The editor also carries `mermaid` for other diagram
+   fences. Still open, and a "diagram wiki" will eventually ask for it.
+3. **Is `DiagramContextMenu` in scope?** Still open. It is Lexical-free and useful
+   (copy-to-clipboard), but pulls `lucide-react`. Recommendation stands: move it and accept
+   the icon dependency in `./react`, since a standalone tool wants a context menu anyway.
+4. ~~**License.**~~ **Resolved:** MIT, carried from the editor, and published as such.
+5. **Local dev link — now real rather than hypothetical.** `liminis-editor` consumes the
+   published package, so a C4 change is not visible to it until a release. No workspace
+   link is set up. This is the standing cost of the "editor consumes it" decision, and the
+   first time it bites will be a change that needs testing in the editor before it is fit
+   to publish.
