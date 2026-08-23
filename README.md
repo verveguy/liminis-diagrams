@@ -7,6 +7,15 @@ editing.
 Extracted from [`@liminis/editor`](https://github.com/verveguy/liminis-editor), where it
 renders ` ```c4 ` fenced code blocks. Nothing here is bound to that editor.
 
+## Demo
+
+**[https://v3rv.com/liminis-diagrams/](https://v3rv.com/liminis-diagrams/)** — edit
+C4-PlantUML source and see it re-render live, drag nodes to reposition them, toggle dark
+mode, and switch between a few preset diagrams. The demo keeps dragged positions in
+memory only, for as long as the tab is open — this package has no persistence of its
+own (see [Recipe 3](docs/recipes.md#recipe-3-position-persistence--the-hosts-choice)),
+and neither does this demo.
+
 ## Install
 
 ```bash

@@ -7,6 +7,7 @@ node_modules/
 # Build outputs
 dist/
 *.tgz
+*.tsbuildinfo
 
 # The examples deliberately install outside any workspace, against a packed
 # tarball. Their install artifacts are per-machine and must never be committed —
