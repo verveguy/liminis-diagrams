@@ -27,12 +27,18 @@ out of scope — this renderer only understands the C4-PlantUML macro subset.
    intermediate file has to be cleaned up:
 
    ```bash
-   npx --yes @liminis/diagrams render-c4 --stdin <<'EOF' > /tmp/diagram.svg
+   npx --yes --package=@liminis/diagrams -- render-c4 --stdin <<'EOF' > /tmp/diagram.svg
    Person(user, "User", "End user")
    System(app, "My App", "Does things")
    Rel(user, app, "Uses")
    EOF
    ```
+
+   `--package=@liminis/diagrams --` is required, not optional style: the package name
+   (`diagrams`) doesn't match its bin (`render-c4`), so a bare
+   `npx @liminis/diagrams render-c4 --stdin` resolves the package's one bin first and
+   then passes the literal word `render-c4` through as that CLI's first argument —
+   which crashes it trying to open a file named `render-c4`.
 
    Pass `--dark` before `--stdin` if the target surface is dark-mode.
 

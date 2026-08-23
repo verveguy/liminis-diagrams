@@ -98,7 +98,18 @@ function renderStdin(dark: boolean): void {
   });
 }
 
-function renderFiles(options: Options): number {
+/**
+ * Null when `options` is a valid combination; otherwise the message to report
+ * (without the `render-c4: ` prefix `main` adds).
+ */
+export function validateStdinCombination(options: Options): string | null {
+  if (options.stdin && (options.check || options.out !== undefined || options.outDir !== undefined || options.files.length > 0)) {
+    return '--stdin cannot be combined with --check, -o/--out, --out-dir, or file arguments';
+  }
+  return null;
+}
+
+export function renderFiles(options: Options): number {
   if (options.out && options.files.length > 1) {
     console.error('render-c4: -o/--out only applies with a single input file');
     return 1;
@@ -107,7 +118,15 @@ function renderFiles(options: Options): number {
   let failures = 0;
 
   for (const inputPath of options.files) {
-    const source = readFileSync(inputPath, 'utf-8');
+    let source: string;
+    try {
+      source = readFileSync(inputPath, 'utf-8');
+    } catch (err) {
+      failures++;
+      console.error(`${inputPath}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
+
     const { svg, errors } = renderC4DiagramToSVG(source, options.dark);
 
     if (errors.length > 0) {
@@ -121,8 +140,14 @@ function renderFiles(options: Options): number {
     if (options.check) continue;
 
     const outPath = outputPathFor(inputPath, options);
-    mkdirSync(dirname(outPath), { recursive: true });
-    writeFileSync(outPath, svg);
+    try {
+      mkdirSync(dirname(outPath), { recursive: true });
+      writeFileSync(outPath, svg);
+    } catch (err) {
+      failures++;
+      console.error(`${inputPath}: failed to write ${outPath}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
     console.log(`${inputPath} -> ${outPath}`);
   }
 
@@ -130,11 +155,32 @@ function renderFiles(options: Options): number {
 }
 
 function main(): void {
-  const options = parseArgs(process.argv.slice(2));
+  const rawArgs = process.argv.slice(2);
+  const options = parseArgs(rawArgs);
 
-  if (!options || (options.files.length === 0 && !options.stdin)) {
+  if (!options) {
     printUsage();
-    process.exitCode = options ? 1 : 0;
+    return;
+  }
+
+  const stdinConflict = validateStdinCombination(options);
+  if (stdinConflict) {
+    console.error(`render-c4: ${stdinConflict}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  if (options.files.length === 0 && !options.stdin) {
+    if (rawArgs.length === 0) {
+      printUsage();
+      process.exitCode = 1;
+      return;
+    }
+    // Flags were given (e.g. `--check` over a glob that matched nothing) but no
+    // files resolved — "nothing to do" is success, not a usage error, so a CI
+    // step like `render-c4 --check $(git ls-files '*.puml')` doesn't fail a repo
+    // that has no diagrams yet.
+    console.log('render-c4: no input files');
     return;
   }
 

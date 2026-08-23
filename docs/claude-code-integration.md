@@ -21,8 +21,9 @@ There are two ways to make that happen, and they compose — use either or both:
 [`integrations/claude-code/skills/render-c4-diagram/`](../integrations/claude-code/skills/render-c4-diagram/)
 is a ready-to-copy Claude Code skill. It tells Claude: when you see C4-PlantUML source
 (a fenced ` ```c4 ` block, a `.puml` file, pasted text using `Person`/`System`/
-`Container`/`Rel` macros), pipe it through `npx @liminis/diagrams render-c4 --stdin` and
-embed the resulting SVG rather than drawing your own.
+`Container`/`Rel` macros), pipe it through
+`npx --package=@liminis/diagrams -- render-c4 --stdin` and embed the resulting SVG
+rather than drawing your own.
 
 Install it by copying the directory into a skills folder Claude Code loads from — either
 project-local (`.claude/skills/render-c4-diagram/` in the repo you're working in) or

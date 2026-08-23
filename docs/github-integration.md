@@ -26,14 +26,23 @@ This package ships a small CLI for exactly this step. It wraps
 renders with the same engine as anything you render in-app.
 
 ```bash
-npx @liminis/diagrams render-c4 docs/architecture.puml
+npx --package=@liminis/diagrams -- render-c4 docs/architecture.puml
 # docs/architecture.puml -> docs/architecture.svg
 
-npx @liminis/diagrams render-c4 --dark docs/architecture.puml -o docs/architecture-dark.svg
+npx --package=@liminis/diagrams -- render-c4 --dark docs/architecture.puml -o docs/architecture-dark.svg
 
-npx @liminis/diagrams render-c4 --check docs/**/*.puml
+npx --package=@liminis/diagrams -- render-c4 --check docs/**/*.puml
 # validates every file, writes nothing, exits non-zero if any fails to parse
 ```
+
+`--package=@liminis/diagrams --` is deliberate, not decoration: the package name
+(`diagrams`) doesn't match its bin name (`render-c4`), so plain
+`npx @liminis/diagrams render-c4 ...` already resolves to the package's sole bin before
+`render-c4` is even read — the same way `npx @vue/cli create app` runs the `vue` bin,
+not a command named `create`. The literal word `render-c4` then gets passed straight
+through as this CLI's *first argument*, which `parseArgs` treats as a file path,
+producing an immediate `ENOENT`. `--package=<name> -- <command>` names the package and
+the command to run inside it separately, so there's nothing left to misinterpret.
 
 | Flag | Effect |
 |---|---|
@@ -45,7 +54,9 @@ npx @liminis/diagrams render-c4 --check docs/**/*.puml
 
 Exit code is `0` on success, `1` on a usage error, `2` if any input file failed to
 render. Errors are printed as `path:line:column: message`, one per line, so they read
-like a linter's output in a CI log.
+like a linter's output in a CI log. If a glob resolves to zero files (e.g. `--check`
+over a repo with no `.puml` files yet) that's success, not a usage error — there's
+nothing to render, not a mistake — so the CI recipe below doesn't fail on an empty repo.
 
 ## Wiring it into a GitHub Action
 
@@ -75,11 +86,11 @@ jobs:
 
       - name: Validate diagrams
         if: github.event_name == 'pull_request'
-        run: npx @liminis/diagrams render-c4 --check $(git ls-files '*.puml')
+        run: npx --package=@liminis/diagrams -- render-c4 --check $(git ls-files '*.puml')
 
       - name: Render diagrams
         if: github.event_name == 'push'
-        run: npx @liminis/diagrams render-c4 $(git ls-files '*.puml')
+        run: npx --package=@liminis/diagrams -- render-c4 $(git ls-files '*.puml')
 
       - name: Commit rendered SVGs
         if: github.event_name == 'push'
