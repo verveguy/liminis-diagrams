@@ -10,7 +10,10 @@ export default defineConfig({
     // `./core` is enforced by its import graph and by the build, not by the
     // test environment.
     environment: 'happy-dom',
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // `scripts/` is included so the pack-output parser has real coverage: it is
+    // the piece that failed a release, and verifying it by running npm only
+    // proves whatever npm the machine happens to have.
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.{test,spec}.mjs'],
     exclude: ['**/node_modules/**'],
     testTimeout: 30_000,
     coverage: {

@@ -34,6 +34,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'no
 import { tmpdir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { parsePackOutput } from './pack-output.mjs'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 // Matched exactly, not by substring: `github.com/verveguy/liminis-diagrams` is
@@ -65,6 +66,17 @@ function run(cmd, args, cwd, opts = {}) {
 }
 
 const manifest = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
+
+// Resolved once: the error paths all report it, and shelling out per message
+// risks them disagreeing if anything changes mid-run.
+const NPM_VERSION = run('npm', ['--version'], ROOT).trim()
+
+// `--no-build` is passed by ci.yml, which already runs `pnpm build` as its own
+// named step (FR-006 requires that). Without it the build runs twice in the same
+// job, roughly doubling the slowest part of it against a 10-minute timeout.
+// publish.yml does NOT pass it: there is no separate build step there, so this
+// script must produce the dist/ it packs.
+const SKIP_BUILD = process.argv.includes('--no-build')
 
 // ---------------------------------------------------------------------------
 step('Manifest — the fields the registry checks, not the ones tsc checks')
@@ -116,9 +128,13 @@ for (const entry of ENTRY_POINTS) {
 // ---------------------------------------------------------------------------
 step('Tarball — what actually ships')
 
-run('pnpm', ['run', 'build'], ROOT)
-const packJson = run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], ROOT)
-const packed = JSON.parse(packJson)[0]
+if (!SKIP_BUILD) run('pnpm', ['run', 'build'], ROOT)
+else pass('build skipped (--no-build): the workflow built already')
+
+const packed = parsePackOutput(
+  run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], ROOT),
+  NPM_VERSION,
+)
 const files = packed.files.map((f) => f.path)
 
 const leaked = files.filter(

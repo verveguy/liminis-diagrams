@@ -60,3 +60,15 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      # Also run at release time, ahead of `npm publish`. Running it here too
+      # means a packaging regression fails a pull request instead of failing a
+      # release after the tag has been cut. Note this runs under the runner's
+      # own npm, while the release runs under the pinned npm that trusted
+      # publishing requires — so the two are not perfectly equivalent, and a
+      # defect that only appears on the pinned version can still reach a
+      # release. That is exactly what happened to v0.1.1's first attempt.
+      # --no-build: the Build step above already produced dist/. Without the
+      # flag this script rebuilds, running the slowest part of the job twice.
+      - name: Verify the package is publishable
+        run: pnpm verify:package --no-build
