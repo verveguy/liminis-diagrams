@@ -29,9 +29,11 @@ until you've already built against it. Four things this package does **not** do:
    only. It carries no identity across two diagrams — two `System(app, ...)` blocks in
    different files have nothing connecting their `app` IDs. See
    [EXTRACTION-PLAN.md §6b](./EXTRACTION-PLAN.md#6-what-the-extraction-does-not-give-you).
-4. **No cross-diagram link syntax.** The parser ignores unknown macros and strips
-   `!include`. There is no `Rel` that spans two diagrams, and no "this container is
-   detailed in another diagram" relationship. See
+4. **No cross-diagram link syntax.** There is no `Rel` that spans two diagrams, and no
+   "this container is detailed in another diagram" relationship. You can't improvise one
+   either: an unrecognized macro name is a parse error, not a silently-ignored no-op, and
+   `!include` is recognized but stripped — the included file is never fetched or inlined.
+   See
    [EXTRACTION-PLAN.md §6c](./EXTRACTION-PLAN.md#6-what-the-extraction-does-not-give-you).
 
 ## Contents

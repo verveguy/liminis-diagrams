@@ -42,6 +42,10 @@ Rel(user, fe, "Uses", "HTTPS")
 Rel(fe, db, "Reads/writes", "SQL")
 `);
 
+if (!diagram) {
+  throw new Error(`parse failed: ${JSON.stringify(errors)}`);
+}
+
 const layout = layoutC4Diagram(diagram);  // nodes, routed edges, width, height
 ```
 

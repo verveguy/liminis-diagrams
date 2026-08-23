@@ -193,9 +193,11 @@ Rel(fe, db, "Reads/writes", "SQL")
 `);
 ```
 
-`errors` is `[]`. `diagram.elements` has 4 entries (`user`, `app`, `fe`, `db`); `app`'s
-`children` array contains the same `fe`/`db` objects that also appear as top-level
-entries in `diagram.elements`. `diagram.relationships` is:
+`errors` is `[]` and `diagram` is non-null — but its type is `C4Diagram | null` (`null` only
+on unrecoverable parse failure), so code passing it on to `layoutC4Diagram` needs to narrow
+it first. `diagram.elements` has 4 entries (`user`, `app`, `fe`, `db`); `app`'s `children`
+array contains the same `fe`/`db` objects that also appear as top-level entries in
+`diagram.elements`. `diagram.relationships` is:
 
 ```json
 [
@@ -205,6 +207,10 @@ entries in `diagram.elements`. `diagram.relationships` is:
 ```
 
 ```ts
+if (!diagram) {
+  throw new Error(`parse failed: ${JSON.stringify(errors)}`);
+}
+
 const layout = layoutC4Diagram(diagram);
 ```
 
