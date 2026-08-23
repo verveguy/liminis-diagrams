@@ -4,6 +4,15 @@
  * Provides drag-and-drop functionality for repositioning C4 diagram elements.
  * Uses window-level listeners during drag so the interaction continues even
  * when the cursor leaves the SVG bounds.
+ *
+ * Pointer events, not mouse events. This started as mouse-only and did not work
+ * on touch devices at all: iPadOS and mobile Safari synthesize `mousedown` and
+ * `click` *after* a gesture resolves, but never emit the `mousemove` stream a
+ * drag needs, so the node never moved and the page panned instead. Pointer
+ * events unify mouse, touch and pen, and are the only way to get one code path
+ * for all three. `pointercancel` matters here too — the browser fires it when it
+ * decides a touch is a scroll or a system gesture, and without handling it the
+ * drag would stay stuck open with no terminating `pointerup`.
  */
 
 import { useCallback, useEffect, useRef, useState, RefObject } from 'react';
@@ -25,7 +34,17 @@ export interface UseC4DiagramDragReturn {
   /** Whether a drag is in progress */
   isDragging: boolean;
   /** Start dragging a node */
-  startNodeDrag: (nodeId: string, nodeX: number, nodeY: number, e: React.MouseEvent) => void;
+  /**
+   * Start dragging a node. Accepts a pointer or mouse event: the parameter is
+   * widened rather than switched so existing callers passing a React.MouseEvent
+   * still typecheck.
+   */
+  startNodeDrag: (
+    nodeId: string,
+    nodeX: number,
+    nodeY: number,
+    e: React.PointerEvent | React.MouseEvent,
+  ) => void;
   /** Convert screen coordinates to SVG coordinates */
   screenToSvg: (clientX: number, clientY: number) => { x: number; y: number } | null;
 }
@@ -33,8 +52,8 @@ export interface UseC4DiagramDragReturn {
 /**
  * Hook for managing drag interactions on C4 diagram nodes.
  *
- * During a drag, mousemove and mouseup are handled on `window` so the
- * interaction continues seamlessly when the cursor moves outside the SVG.
+ * During a drag, pointermove/pointerup/pointercancel are handled on `window` so
+ * the interaction continues seamlessly when the pointer leaves the SVG.
  */
 export function useC4DiagramDrag({
   svgRef,
@@ -49,6 +68,15 @@ export function useC4DiagramDrag({
 
   // Track the last known position for dragEnd callback
   const lastPositionRef = useRef({ x: 0, y: 0 });
+
+  // The pointer that owns the current drag. Mouse events have exactly one
+  // stream; pointer events do not — a touch device can deliver concurrent
+  // streams for several fingers at once. Without this, a second finger landing
+  // on another node overwrites the single-slot drag state, so the first
+  // finger's moves start dragging the second node and either finger's release
+  // ends the drag. Null when no drag is active; null for a mouse-event caller,
+  // which cannot be concurrent anyway.
+  const activePointerIdRef = useRef<number | null>(null);
 
   // Locked CTM inverse captured at drag start — prevents the accelerating
   // feedback loop where canvas expansion changes the scale mid-drag
@@ -92,11 +120,18 @@ export function useC4DiagramDrag({
    * doesn't cause accelerating movement.
    */
   const startNodeDrag = useCallback(
-    (nodeId: string, nodeX: number, nodeY: number, e: React.MouseEvent) => {
+    (nodeId: string, nodeX: number, nodeY: number, e: React.PointerEvent | React.MouseEvent) => {
       if (!enabled) return;
+
+      // One drag at a time. A pointerdown arriving while a drag is already in
+      // progress is a second finger, not a new intent — ignore it rather than
+      // letting it hijack the drag already underway.
+      if (draggedNodeIdRef.current !== null) return;
 
       e.stopPropagation();
       e.preventDefault();
+
+      activePointerIdRef.current = 'pointerId' in e ? e.pointerId : null;
 
       // Lock the CTM at drag start
       const svg = svgRef.current;
@@ -122,9 +157,11 @@ export function useC4DiagramDrag({
   useEffect(() => {
     if (!draggedNodeId) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       const nodeId = draggedNodeIdRef.current;
       if (!nodeId) return;
+      // Movement from any other finger is not this drag.
+      if (activePointerIdRef.current !== null && e.pointerId !== activePointerIdRef.current) return;
 
       const svgPoint = screenToSvgRef.current(e.clientX, e.clientY);
       if (!svgPoint) return;
@@ -136,9 +173,11 @@ export function useC4DiagramDrag({
       onNodeDragRef.current?.(nodeId, newX, newY);
     };
 
-    const handleMouseUp = () => {
+    const endDrag = (e: PointerEvent) => {
       const nodeId = draggedNodeIdRef.current;
       if (!nodeId) return;
+      // A second finger lifting must not end the drag the first one owns.
+      if (activePointerIdRef.current !== null && e.pointerId !== activePointerIdRef.current) return;
 
       onNodeDragEndRef.current?.(
         nodeId,
@@ -146,16 +185,22 @@ export function useC4DiagramDrag({
         lastPositionRef.current.y
       );
       draggedNodeIdRef.current = null;
+      activePointerIdRef.current = null;
       lockedCtmInverseRef.current = null;
       setDraggedNodeId(null);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', endDrag);
+    // Fired when the browser takes the gesture over (scroll, system swipe) or
+    // the pointer is otherwise lost. Without it a touch drag can end with no
+    // `pointerup` at all, leaving the node stuck to the finger.
+    window.addEventListener('pointercancel', endDrag);
 
     return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', endDrag);
+      window.removeEventListener('pointercancel', endDrag);
     };
   }, [draggedNodeId]);
 
