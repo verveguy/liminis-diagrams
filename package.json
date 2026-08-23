@@ -32,6 +32,9 @@
   "//entrypoints": "These point at dist/ here, in the checked-in manifest, and must stay that way. @liminis/editor shipped a broken 0.1.0 by putting them under `publishConfig`: manifest-field overrides there are a pnpm/yarn feature, and npm honours `publishConfig` only for values like access/registry/tag, so it published src/ paths while `files` shipped only dist/. See that package's ADR-078.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "render-c4": "./dist/bin/render-c4.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
