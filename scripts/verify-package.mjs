@@ -24,7 +24,9 @@
  * Usage:
  *     pnpm verify:package
  *
- * Exits non-zero on the first failure, with the reason.
+ * Runs every check, reports each one, and exits non-zero at the end if any
+ * failed -- deliberately not fail-fast, so one release attempt surfaces every
+ * problem rather than one per run.
  */
 
 import { execFileSync } from 'node:child_process'
@@ -34,19 +36,24 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
-const EXPECTED_REPO = 'github.com/verveguy/liminis-diagrams'
+// Matched exactly, not by substring: `github.com/verveguy/liminis-diagrams` is
+// a prefix of `github.com/verveguy/liminis-diagrams-fork`, so a substring test
+// would pass for the wrong repository. The `git+https://` scheme and the `.git`
+// suffix are both part of what npm matches against the OIDC claim, so both are
+// part of the expected value rather than checked separately.
+const EXPECTED_REPO_URL = 'git+https://github.com/verveguy/liminis-diagrams.git'
 const ENTRY_POINTS = ['.', './core', './react', './server']
 /** Entries that must work with no React installed. */
 const REACT_FREE_ENTRIES = ['.', './core']
 
 let failures = 0
-const pass = (msg) => console.log(`  [32mok[0m    ${msg}`)
+const pass = (msg) => console.log(`  \x1b[32mok\x1b[0m    ${msg}`)
 const fail = (msg, detail) => {
   failures++
-  console.log(`  [31mFAIL[0m  ${msg}`)
+  console.log(`  \x1b[31mFAIL\x1b[0m  ${msg}`)
   if (detail) console.log(`        ${String(detail).split('\n').join('\n        ')}`)
 }
-const step = (msg) => console.log(`\n[1m${msg}[0m`)
+const step = (msg) => console.log(`\n\x1b[1m${msg}\x1b[0m`)
 
 function run(cmd, args, cwd, opts = {}) {
   return execFileSync(cmd, args, {
@@ -67,11 +74,15 @@ step('Manifest — the fields the registry checks, not the ones tsc checks')
 const repoUrl = manifest.repository?.url ?? ''
 if (!repoUrl) {
   fail('repository.url is present', 'npm --provenance cannot publish without it (E422)')
-} else if (!repoUrl.includes(EXPECTED_REPO)) {
-  fail('repository.url points at this repository', `got ${repoUrl}, expected it to contain ${EXPECTED_REPO}`)
-} else if (!repoUrl.startsWith('git+https://')) {
-  // The SSH form does not match the OIDC claim.
-  fail('repository.url uses the git+https:// scheme', `got ${repoUrl}`)
+} else if (repoUrl !== EXPECTED_REPO_URL) {
+  // Report the specific way it differs -- scheme, suffix and target are three
+  // different mistakes and the fix differs for each.
+  const why = []
+  if (!repoUrl.startsWith('git+https://')) why.push('scheme is not git+https:// (the SSH form does not match the claim)')
+  if (!repoUrl.endsWith('.git')) why.push('missing the .git suffix')
+  if (!repoUrl.replace(/^git\+/, '').replace(/\.git$/, '').endsWith('github.com/verveguy/liminis-diagrams'))
+    why.push('does not point at verveguy/liminis-diagrams')
+  fail('repository.url matches this repository exactly', `got  ${repoUrl}\nwant ${EXPECTED_REPO_URL}` + (why.length ? `\n${why.join('\n')}` : ''))
 } else {
   pass(`repository.url ${repoUrl}`)
 }
@@ -116,7 +127,9 @@ const leaked = files.filter(
     f.startsWith('specs/') ||
     f.startsWith('demo/') ||
     f.startsWith('docs/') ||
-    (f.endsWith('.ts') && !f.endsWith('.d.ts')),
+    // .tsx as well as .ts: src/react/*.tsx are real source files, and a filter
+    // that only knew about .ts would report a tarball containing them as clean.
+    (/\.tsx?$/.test(f) && !f.endsWith('.d.ts')),
 )
 if (leaked.length) fail('no source, specs, docs or demo in the tarball', leaked.join('\n'))
 else pass(`tarball is ${files.length} files, dist/README/LICENSE/package.json only`)
@@ -195,7 +208,7 @@ try {
 // ---------------------------------------------------------------------------
 console.log()
 if (failures) {
-  console.log(`[31m${failures} check(s) failed.[0m`)
+  console.log(`\x1b[31m${failures} check(s) failed.\x1b[0m`)
   process.exit(1)
 }
-console.log('[32mAll package checks passed.[0m')
+console.log('\x1b[32mAll package checks passed.\x1b[0m')
