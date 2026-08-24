@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { parseC4, validateC4 } from '@liminis/diagrams/core'
 import { C4InteractiveRenderer, C4ErrorDisplay } from '@liminis/diagrams/react'
@@ -40,8 +40,37 @@ export interface C4PlaygroundProps {
  * discrete. Steps also keep the control to two buttons and a readout, which is
  * the entire UI anyone needs here.
  */
-const ZOOM_STEPS = [0.5, 0.75, 1, 1.5, 2, 3]
-const DEFAULT_ZOOM_INDEX = ZOOM_STEPS.indexOf(1)
+const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3]
+
+/**
+ * The scale at which the whole diagram is visible in the pane it is given.
+ *
+ * Never above 1. A diagram larger than its pane should shrink to fit, but a
+ * small one blown up to fill a lightbox is a surprise: nothing was gained and
+ * the reader now has to work out what the size means. Fitting is about seeing
+ * all of it, not about filling space.
+ *
+ * Returns null when there is nothing to measure yet — before hydration, or if
+ * the pane has no size because it is display:none.
+ */
+function fitScale(canvas: HTMLElement | null): number | null {
+  const svg = canvas?.querySelector('svg')
+  if (!canvas || !svg) return null
+
+  const { width: diagramWidth, height: diagramHeight } = svg.viewBox.baseVal
+  if (!diagramWidth || !diagramHeight) return null
+
+  // The pane's usable space, less its own padding — measuring the border box
+  // would overshoot by the padding and clip what fitting is meant to reveal.
+  const style = getComputedStyle(canvas)
+  const available = {
+    width: canvas.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+    height: canvas.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+  }
+  if (available.width <= 0 || available.height <= 0) return null
+
+  return Math.min(1, available.width / diagramWidth, available.height / diagramHeight)
+}
 
 export default function C4Playground({
   source,
@@ -53,7 +82,11 @@ export default function C4Playground({
   const [positions, setPositions] = useState<ManualLayout['positions']>({})
   const [isEditMode, setIsEditMode] = useState(editable)
   const [isExpanded, setIsExpanded] = useState(false)
-  const [zoomIndex, setZoomIndex] = useState(DEFAULT_ZOOM_INDEX)
+  // `null` means "fit": recomputed from the pane whenever the diagram or the
+  // pane changes. A number is the reader's own choice, and is left alone.
+  const [chosenZoom, setChosenZoom] = useState<number | null>(null)
+  const [fittedZoom, setFittedZoom] = useState(1)
+  const canvasRef = useRef<HTMLDivElement>(null)
   const isDark = useIsDarkMode()
   const panelRef = useRef<HTMLDivElement>(null)
   const returnFocusTo = useRef<Element | null>(null)
@@ -128,12 +161,64 @@ export default function C4Playground({
     return result
   }, [text])
 
-  const zoom = ZOOM_STEPS[zoomIndex]
-  const stepZoom = (by: number) =>
-    setZoomIndex((i) => Math.min(ZOOM_STEPS.length - 1, Math.max(0, i + by)))
+  const zoom = chosenZoom ?? fittedZoom
+
+  /**
+   * Step to the next preset above or below wherever the zoom currently sits.
+   *
+   * Relative to the current value rather than to an index, because fitting
+   * produces an arbitrary scale — 0.62, say — that is not one of the presets.
+   * Stepping up from there should reach the first preset above 0.62, not jump
+   * to whatever index happens to be selected.
+   */
+  const stepZoom = useCallback(
+    (direction: 1 | -1) => {
+      setChosenZoom((current) => {
+        const from = current ?? fittedZoom
+        const next =
+          direction === 1
+            ? ZOOM_STEPS.find((step) => step > from + 0.001)
+            : [...ZOOM_STEPS].reverse().find((step) => step < from - 0.001)
+        return next ?? from
+      })
+    },
+    [fittedZoom],
+  )
+
+  // Declared before the effect below, which depends on it: the source pane's
+  // presence changes how much width the diagram has to fit into.
+  const showSource = !readOnly
+
+  // Measure after layout rather than after paint, so the diagram is never shown
+  // at the wrong size for a frame and then corrected — which reads as a flinch.
+  useLayoutEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const measure = () => {
+      const fit = fitScale(canvas)
+      if (fit !== null) setFittedZoom(fit)
+    }
+    measure()
+
+    // The pane resizes when the window does, when the lightbox opens, and when
+    // the source pane is shown or hidden. Observing it covers all three without
+    // enumerating them.
+    const observer = new ResizeObserver(measure)
+    observer.observe(canvas)
+    return () => observer.disconnect()
+    // `text` is a dependency because editing the source changes the diagram's
+    // dimensions, and `isExpanded` because the pane it has to fit changes.
+  }, [text, isExpanded, showSource])
+
+  // Expanding is a request to see the whole diagram, so it returns to fitting
+  // even if the reader had zoomed in beforehand. Collapsing does the same, since
+  // the inline pane is a different size again.
+  useEffect(() => {
+    setChosenZoom(null)
+  }, [isExpanded])
 
   const positionCount = Object.keys(positions).length
-  const showSource = !readOnly
 
   const panel = (
     <div
@@ -178,7 +263,7 @@ export default function C4Playground({
           <button
             type="button"
             onClick={() => stepZoom(-1)}
-            disabled={zoomIndex === 0}
+            disabled={zoom <= ZOOM_STEPS[0] + 0.001}
             aria-label="Zoom out"
             title="Zoom out"
           >
@@ -188,17 +273,17 @@ export default function C4Playground({
               are readable, not doing arithmetic against an original. */}
           <button
             type="button"
-            onClick={() => setZoomIndex(DEFAULT_ZOOM_INDEX)}
-            disabled={zoomIndex === DEFAULT_ZOOM_INDEX}
-            aria-label="Reset zoom to actual size"
-            title="Reset zoom"
+            onClick={() => setChosenZoom(null)}
+            disabled={chosenZoom === null}
+            aria-label="Zoom to fit"
+            title="Zoom to fit"
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             type="button"
             onClick={() => stepZoom(1)}
-            disabled={zoomIndex === ZOOM_STEPS.length - 1}
+            disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1] - 0.001}
             aria-label="Zoom in"
             title="Zoom in"
           >
@@ -229,7 +314,7 @@ export default function C4Playground({
             aria-label="C4-PlantUML source"
           />
         )}
-        <div className="c4-playground__canvas">
+        <div className="c4-playground__canvas" ref={canvasRef}>
           {parsed.diagram && parsed.errors.length === 0 ? (
             <C4InteractiveRenderer
               diagram={parsed.diagram}
