@@ -94,7 +94,7 @@ writes them anywhere.
 ## Render on the command line
 
 ```bash
-npx --package=@liminis/diagrams -- render-c4 diagram.puml
+npx --package=@liminis/diagrams --package=react --package=react-dom -- render-c4 diagram.puml
 # diagram.puml -> diagram.svg
 ```
 

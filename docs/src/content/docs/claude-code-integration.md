@@ -25,7 +25,7 @@ There are two ways to make that happen, and they compose — use either or both:
 is a ready-to-copy Claude Code skill. It tells Claude: when you see C4-PlantUML source
 (a fenced ` ```c4 ` block, a `.puml` file, pasted text using `Person`/`System`/
 `Container`/`Rel` macros), pipe it through
-`npx --package=@liminis/diagrams -- render-c4 --stdin` and embed the resulting SVG
+`npx --package=@liminis/diagrams --package=react --package=react-dom -- render-c4 --stdin` and embed the resulting SVG
 rather than drawing your own.
 
 Install it by copying the directory into a skills folder Claude Code loads from — either

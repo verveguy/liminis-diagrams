@@ -24,7 +24,14 @@ import { visit } from 'unist-util-visit'
  */
 
 const COMPONENT = 'C4Playground'
-const IMPORT_FROM = '../../components/C4Playground.tsx'
+// An alias, not a relative path. The injected import is the same string for
+// every page, but pages need not sit at the same depth — a page in a
+// subdirectory is a different number of levels from src/components — so a
+// relative path is correct for exactly one depth and silently wrong for the
+// rest. Every page here happens to sit at that one depth today, which is
+// precisely why this was worth fixing before it bit. Defined in
+// astro.config.mjs.
+const IMPORT_FROM = '@site/components/C4Playground.tsx'
 
 /** An mdast attribute whose value is a JS expression rather than a string. */
 function expressionAttribute(name, value) {
