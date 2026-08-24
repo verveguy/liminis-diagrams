@@ -116,39 +116,57 @@ function booleanAttribute(name: string, value: boolean) {
 }
 
 function parseMeta(meta: string | undefined) {
-  const props: { type: string; name: string; value: unknown }[] = []
-  if (!meta) return props
+  // Keyed by attribute name, so a fence can only ever produce one of each.
+  //
+  // `static` is shorthand for two attributes, which made `static editable=true`
+  // emit `editable` twice — leaving which one wins to whatever the downstream
+  // JSX serialiser does with a duplicate. Later tokens now overwrite earlier
+  // ones, so that fence means what it reads like: static, but editable after
+  // all. Order is what decides, in both directions: `editable=true static` is
+  // static, because `static` came last.
+  const props = new Map<string, { type: string; name: string; value: unknown }>()
+  if (!meta) return []
+
+  const set = (attribute: { type: string; name: string; value: unknown }) =>
+    props.set(attribute.name, attribute)
+
   for (const token of meta.trim().split(/\s+/)) {
     if (!token) continue
     const [key, raw] = token.split('=')
     switch (key) {
       case 'readOnly':
-        props.push(booleanAttribute('readOnly', true))
+        set(booleanAttribute('readOnly', true))
         break
       case 'static':
         // Shorthand: an illustration, not an invitation to edit or drag.
-        props.push(booleanAttribute('readOnly', true))
-        props.push(booleanAttribute('editable', false))
+        set(booleanAttribute('readOnly', true))
+        set(booleanAttribute('editable', false))
         break
       case 'editable':
-        props.push(booleanAttribute('editable', raw !== 'false'))
+        set(booleanAttribute('editable', raw !== 'false'))
         break
       case 'height':
-        if (raw) props.push({ type: 'mdxJsxAttribute', name: 'height', value: raw })
+        if (raw) set({ type: 'mdxJsxAttribute', name: 'height', value: raw })
         break
       default:
         // Ignored on purpose — see the note above.
         break
     }
   }
-  return props
+  return [...props.values()]
 }
 
 /** `import C4Playground from '…'`, built as estree rather than parsed. */
 function importNode(componentPath: string): MdastNode {
+  // JSON.stringify rather than wrapping in quotes: a path containing a quote or
+  // a backslash would otherwise produce invalid JS in the text *and* a `raw`
+  // that disagrees with the value beside it — two representations of the same
+  // import, differing. Bundlers read the estree; humans read the text.
+  const literal = JSON.stringify(componentPath)
+
   return {
     type: 'mdxjsEsm',
-    value: `import ${COMPONENT} from '${componentPath}'`,
+    value: `import ${COMPONENT} from ${literal}`,
     data: {
       estree: {
         type: 'Program',
@@ -162,7 +180,7 @@ function importNode(componentPath: string): MdastNode {
                 local: { type: 'Identifier', name: COMPONENT },
               },
             ],
-            source: { type: 'Literal', value: componentPath, raw: `'${componentPath}'` },
+            source: { type: 'Literal', value: componentPath, raw: literal },
             attributes: [],
           },
         ],

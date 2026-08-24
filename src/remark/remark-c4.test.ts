@@ -79,6 +79,24 @@ describe('remarkC4', () => {
       expect(attr(island(tree), 'height')?.value).toBe('26rem');
     });
 
+    it('emits each attribute once, however the meta is written', () => {
+      // `static` is shorthand for two attributes, so `static editable=true`
+      // used to emit `editable` twice and leave the winner to the serialiser.
+      const tree = run(root(fence('x', 'static editable=true')));
+      const editable = island(tree)?.attributes?.filter((a) => a.name === 'editable');
+      expect(editable).toHaveLength(1);
+      // Later wins, so the fence means what it reads like: static, but editable.
+      expect(editable?.[0].value).toBeNull();
+    });
+
+    it('lets order decide in the other direction too', () => {
+      const tree = run(root(fence('x', 'editable=true static')));
+      const editable = island(tree)?.attributes?.filter((a) => a.name === 'editable');
+      expect(editable).toHaveLength(1);
+      // `static` came last, so it wins: not editable.
+      expect(JSON.stringify(editable?.[0].value)).toContain('false');
+    });
+
     it('ignores a word it does not know rather than failing the build', () => {
       // A fence is content. A typo in one should not take a docs site down.
       const tree = run(root(fence('x', 'readOnly wobble height=10rem')));
@@ -128,6 +146,19 @@ describe('remarkC4', () => {
       const tree = run(root(fence('x')));
       const esm = tree.children?.find((c) => c.type === 'mdxjsEsm');
       expect(esm?.value).toContain('@site/components/C4Playground.tsx');
+    });
+
+    it('escapes a path that would otherwise produce invalid JS', () => {
+      // Contrived, but the failure would be a build error in someone else's
+      // repository with no obvious cause — and worse, a `raw` disagreeing with
+      // the value beside it, which only the bundler reads.
+      const awkward = String.raw`~/it's/a\path`;
+      const tree = run(root(fence('x')), { component: awkward });
+      const esm = tree.children?.find((c) => c.type === 'mdxjsEsm');
+      expect(esm?.value).toBe(`import C4Playground from ${JSON.stringify(awkward)}`);
+      const source = JSON.parse(JSON.stringify(esm?.data)).estree.body[0].source;
+      expect(source.value).toBe(awkward);
+      expect(source.raw).toBe(JSON.stringify(awkward));
     });
 
     it('can be pointed somewhere else', () => {
