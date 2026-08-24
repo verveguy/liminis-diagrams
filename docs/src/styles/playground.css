@@ -27,7 +27,7 @@
   font: inherit;
 }
 .c4-playground__bar button:disabled { opacity: 0.45; cursor: default; }
-.c4-playground__hint { margin-left: auto; color: var(--sl-color-gray-3); }
+.c4-playground__hint { color: var(--sl-color-gray-3); }
 .c4-playground__panes { display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr); }
 @media (max-width: 50rem) { .c4-playground__panes { grid-template-columns: 1fr; } }
 .c4-playground__source {
@@ -104,6 +104,22 @@
 
 /* Diagram-only: an illustration, not an invitation to edit. */
 .c4-playground--diagram-only .c4-playground__panes { grid-template-columns: 1fr; }
+
+.c4-playground__zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: auto;
+}
+.c4-playground__zoom button {
+  min-width: 2rem;
+  padding: 0.2rem 0.4rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+/* The readout doubles as the reset control, disabled at 100% rather than
+   hidden — a control that vanishes when it does nothing is one the reader has
+   to rediscover. Disabled styling comes from the bar's own button rule. */
 
 .c4-playground__expand {
   margin-left: 0.25rem;
