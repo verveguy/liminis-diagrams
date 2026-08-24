@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config'
 import starlight from '@astrojs/starlight'
 import react from '@astrojs/react'
 import { fileURLToPath } from 'node:url'
-import { remarkC4 } from './src/plugins/remark-c4.mjs'
+import { remarkC4 } from '@liminis/diagrams/remark'
 
 // Served as a GitHub Pages project site. The account has a custom domain on the
 // user site, so this resolves to https://v3rv.com/liminis-diagrams/ rather than
@@ -14,8 +14,8 @@ import { remarkC4 } from './src/plugins/remark-c4.mjs'
 // builds it, and Astro cannot see it, so links to it are external as far as the
 // link checker is concerned.
 export default defineConfig({
-  // `@site` so remark-c4's injected import resolves from any page depth. See
-  // the note beside IMPORT_FROM in that plugin.
+  // `@site` so the import remarkC4 injects resolves from any page depth. The
+  // plugin defaults to this alias; it lives in @liminis/diagrams/remark now.
   vite: {
     resolve: {
       alias: { '@site': fileURLToPath(new URL('./src', import.meta.url)) },
@@ -23,7 +23,7 @@ export default defineConfig({
   },
   // Turns ```c4 fences into live islands. Files stay readable as markdown on
   // GitHub, where the fence renders as a code block, and gain the interactive
-  // renderer here. See src/plugins/remark-c4.mjs.
+  // renderer here. See @liminis/diagrams/remark.
   markdown: { remarkPlugins: [remarkC4] },
   site: 'https://v3rv.com',
   base: '/liminis-diagrams',
