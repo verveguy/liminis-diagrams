@@ -40,7 +40,20 @@ export interface C4PlaygroundProps {
  * discrete. Steps also keep the control to two buttons and a readout, which is
  * the entire UI anyone needs here.
  */
-const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3]
+/**
+ * Zoom steps, as multiples of the fitted size.
+ *
+ * 100% is the view that shows the whole diagram, not 1 SVG unit per pixel.
+ * That is the size the reader arrives at, so it is the one the number should
+ * describe — and it keeps the readout still when the lightbox opens, where the
+ * diagram is drawn larger but is still, conceptually, the same whole-diagram
+ * view. Reporting absolute scale made expanding look like a zoom: 57% became
+ * 100% while nothing about what you could see had changed.
+ *
+ * The range starts at fit because there is nothing below it worth seeing. Once
+ * the whole diagram is visible, smaller only buys whitespace.
+ */
+const ZOOM_STEPS = [1, 1.5, 2, 3, 4]
 
 /**
  * The scale at which the whole diagram is visible in the pane it is given.
@@ -82,9 +95,10 @@ export default function C4Playground({
   const [positions, setPositions] = useState<ManualLayout['positions']>({})
   const [isEditMode, setIsEditMode] = useState(editable)
   const [isExpanded, setIsExpanded] = useState(false)
-  // `null` means "fit": recomputed from the pane whenever the diagram or the
-  // pane changes. A number is the reader's own choice, and is left alone.
-  const [chosenZoom, setChosenZoom] = useState<number | null>(null)
+  // Zoom as a multiple of the fitted size: 1 is "the whole diagram", which is
+  // where every view starts. The absolute scale handed to the renderer is this
+  // times whatever fitting currently works out to.
+  const [relativeZoom, setRelativeZoom] = useState(1)
   const [fittedZoom, setFittedZoom] = useState(1)
   const canvasRef = useRef<HTMLDivElement>(null)
   const isDark = useIsDarkMode()
@@ -161,29 +175,20 @@ export default function C4Playground({
     return result
   }, [text])
 
-  const zoom = chosenZoom ?? fittedZoom
+  // What the renderer is actually given. Fitting produces an arbitrary scale —
+  // 0.57 on this site's architecture page — and the reader's multiple applies
+  // on top of it.
+  const zoom = fittedZoom * relativeZoom
 
-  /**
-   * Step to the next preset above or below wherever the zoom currently sits.
-   *
-   * Relative to the current value rather than to an index, because fitting
-   * produces an arbitrary scale — 0.62, say — that is not one of the presets.
-   * Stepping up from there should reach the first preset above 0.62, not jump
-   * to whatever index happens to be selected.
-   */
-  const stepZoom = useCallback(
-    (direction: 1 | -1) => {
-      setChosenZoom((current) => {
-        const from = current ?? fittedZoom
-        const next =
-          direction === 1
-            ? ZOOM_STEPS.find((step) => step > from + 0.001)
-            : [...ZOOM_STEPS].reverse().find((step) => step < from - 0.001)
-        return next ?? from
-      })
-    },
-    [fittedZoom],
-  )
+  const stepZoom = useCallback((direction: 1 | -1) => {
+    setRelativeZoom((current) => {
+      const next =
+        direction === 1
+          ? ZOOM_STEPS.find((step) => step > current + 0.001)
+          : [...ZOOM_STEPS].reverse().find((step) => step < current - 0.001)
+      return next ?? current
+    })
+  }, [])
 
   // Declared before the effect below, which depends on it: the source pane's
   // presence changes how much width the diagram has to fit into.
@@ -215,7 +220,7 @@ export default function C4Playground({
   // even if the reader had zoomed in beforehand. Collapsing does the same, since
   // the inline pane is a different size again.
   useEffect(() => {
-    setChosenZoom(null)
+    setRelativeZoom(1)
   }, [isExpanded])
 
   const positionCount = Object.keys(positions).length
@@ -263,27 +268,27 @@ export default function C4Playground({
           <button
             type="button"
             onClick={() => stepZoom(-1)}
-            disabled={zoom <= ZOOM_STEPS[0] + 0.001}
+            disabled={relativeZoom <= ZOOM_STEPS[0] + 0.001}
             aria-label="Zoom out"
             title="Zoom out"
           >
             −
           </button>
-          {/* A percentage, not "1.5×": the reader is judging whether the labels
-              are readable, not doing arithmetic against an original. */}
+          {/* A percentage of the fitted view, not of actual size: 100% is what
+              the reader opened, which is the thing the number should describe. */}
           <button
             type="button"
-            onClick={() => setChosenZoom(null)}
-            disabled={chosenZoom === null}
+            onClick={() => setRelativeZoom(1)}
+            disabled={relativeZoom === 1}
             aria-label="Zoom to fit"
             title="Zoom to fit"
           >
-            {Math.round(zoom * 100)}%
+            {Math.round(relativeZoom * 100)}%
           </button>
           <button
             type="button"
             onClick={() => stepZoom(1)}
-            disabled={zoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1] - 0.001}
+            disabled={relativeZoom >= ZOOM_STEPS[ZOOM_STEPS.length - 1] - 0.001}
             aria-label="Zoom in"
             title="Zoom in"
           >
