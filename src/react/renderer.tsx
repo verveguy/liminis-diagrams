@@ -992,6 +992,13 @@ export interface C4RendererProps {
   layout: LayoutResult;
   /** Whether dark mode is enabled */
   isDarkMode: boolean;
+  /**
+   * Scale factor for the rendered diagram. 1 is actual size. Scales the SVG's
+   * width/height and leaves the viewBox alone, so text is re-rendered at the new
+   * scale rather than stretched, and a scrolling container can actually scroll
+   * the result. Defaults to 1.
+   */
+  zoom?: number;
 }
 
 /**
@@ -1000,7 +1007,7 @@ export interface C4RendererProps {
  * Pure component: takes layout + theme, returns SVG.
  * Used directly in the editor and via renderToStaticMarkup for publishing.
  */
-export function C4Renderer({ layout, isDarkMode }: C4RendererProps): JSX.Element {
+export function C4Renderer({ layout, isDarkMode, zoom = 1 }: C4RendererProps): JSX.Element {
   const colors = getColors(isDarkMode);
 
   const boundaryNodes = layout.nodes.filter(
@@ -1032,8 +1039,8 @@ export function C4Renderer({ layout, isDarkMode }: C4RendererProps): JSX.Element
 
   return (
     <svg
-      width={totalWidth}
-      height={totalHeight}
+      width={totalWidth * zoom}
+      height={totalHeight * zoom}
       viewBox={`${layout.viewBoxX} ${layout.viewBoxY} ${totalWidth} ${totalHeight}`}
       xmlns="http://www.w3.org/2000/svg"
       data-diagram="c4"

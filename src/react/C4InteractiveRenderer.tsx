@@ -31,6 +31,29 @@ export interface C4InteractiveRendererProps {
   manualPositions: Record<string, { x: number; y: number }>;
   /** Callback when positions change (during drag or on drag end) */
   onPositionChange: (positions: Record<string, { x: number; y: number }>) => void;
+  /**
+   * Scale factor for the rendered diagram. 1 is actual size; 2 draws it twice as
+   * large. Defaults to 1, so a host that does not care is unaffected.
+   *
+   * This scales the SVG's rendered `width`/`height` and leaves the `viewBox`
+   * alone, rather than applying a CSS transform. Three things follow, and they
+   * are the reason for doing it this way:
+   *
+   *   - Dragging keeps working untouched. Screen coordinates are mapped through
+   *     `getScreenCTM().inverse()`, and that matrix already carries the ratio
+   *     between the viewBox and the rendered size — so a node still lands under
+   *     the pointer at any zoom, with no arithmetic anywhere in the drag code.
+   *   - The diagram genuinely occupies more space, so a scrolling container
+   *     scrolls it. A CSS `transform` is painted after layout: the element still
+   *     reports its unscaled size, and the overflow it appears to produce cannot
+   *     be scrolled to.
+   *   - Text stays sharp. It is re-rendered at the new scale rather than being a
+   *     bitmap stretched over it.
+   *
+   * Controls are deliberately not included. What a zoom control should look like
+   * is the host's business — this package renders diagrams.
+   */
+  zoom?: number;
 }
 
 /**
@@ -91,6 +114,7 @@ export function C4InteractiveRenderer({
   isEditMode,
   manualPositions,
   onPositionChange,
+  zoom = 1,
 }: C4InteractiveRendererProps): JSX.Element {
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -309,6 +333,7 @@ export function C4InteractiveRenderer({
       onNodeMouseDown={startNodeDrag}
       legendInfo={legendInfo}
       legendPositionOverride={legendPositionOverride}
+      zoom={zoom}
     />
   );
 }
@@ -327,6 +352,8 @@ interface C4InteractiveSvgProps {
   ) => void;
   legendInfo: { x: number; y: number; width: number; height: number } | null;
   legendPositionOverride: { x: number; y: number } | null;
+  /** Scale factor applied to the rendered size; the viewBox is unchanged. */
+  zoom: number;
 }
 
 /**
@@ -341,6 +368,7 @@ function C4InteractiveSvg({
   onNodeMouseDown,
   legendInfo,
   legendPositionOverride,
+  zoom,
 }: C4InteractiveSvgProps): JSX.Element {
   // Get colors based on theme
   const handleColor = isDarkMode ? '#a0a0a0' : '#505050';
@@ -406,8 +434,8 @@ function C4InteractiveSvg({
       {/* Base renderer - use full rendered size including legend */}
       <svg
         ref={svgRef}
-        width={svgWidth}
-        height={svgHeight}
+        width={svgWidth * zoom}
+        height={svgHeight * zoom}
         viewBox={`${layout.viewBoxX} ${layout.viewBoxY} ${svgWidth} ${svgHeight}`}
         xmlns="http://www.w3.org/2000/svg"
         data-diagram="c4"
