@@ -43,7 +43,7 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 // suffix are both part of what npm matches against the OIDC claim, so both are
 // part of the expected value rather than checked separately.
 const EXPECTED_REPO_URL = 'git+https://github.com/verveguy/liminis-diagrams.git'
-const ENTRY_POINTS = ['.', './core', './react', './server']
+const ENTRY_POINTS = ['.', './core', './react', './playground', './server']
 /** Entries that must work with no React installed. */
 const REACT_FREE_ENTRIES = ['.', './core']
 
@@ -158,6 +158,17 @@ for (const entry of ENTRY_POINTS) {
     else fail(`emitted ${want}`, 'entry point declared in exports but not present in the tarball')
   }
 }
+
+// The stylesheet is copied by scripts/copy-assets.mjs rather than emitted by
+// tsc, which compiles only what it can typecheck. Nothing else would notice its
+// absence: the export map would point at a file that never existed, and the
+// symptom would be an unstyled playground in someone else's site.
+const CSS = 'dist/playground/playground.css'
+if (files.includes(CSS)) pass(`emitted ${CSS}`)
+else fail(`emitted ${CSS}`, 'declared as ./playground.css but not in the tarball — did copy-assets run?')
+
+if (manifest.exports?.['./playground.css'] === `./${CSS}`) pass('exports declares ./playground.css')
+else fail('exports declares ./playground.css', `got ${JSON.stringify(manifest.exports?.['./playground.css'])}`)
 
 // ---------------------------------------------------------------------------
 step('Real install — the tarball, not the source tree')

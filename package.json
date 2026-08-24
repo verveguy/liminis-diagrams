@@ -48,6 +48,11 @@
       "types": "./dist/react.d.ts",
       "default": "./dist/react.js"
     },
+    "./playground": {
+      "types": "./dist/playground.d.ts",
+      "default": "./dist/playground.js"
+    },
+    "./playground.css": "./dist/playground/playground.css",
     "./server": {
       "types": "./dist/server.d.ts",
       "default": "./dist/server.js"
@@ -61,7 +66,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm run clean && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths",
+    "build": "pnpm run clean && tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && node scripts/copy-assets.mjs",
     "clean": "rm -rf dist",
     "prepack": "pnpm run build",
     "prepublishOnly": "node scripts/guard-publish.mjs",
