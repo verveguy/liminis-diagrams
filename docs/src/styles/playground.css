@@ -47,12 +47,21 @@
   overflow: auto;
   padding: 0.5rem;
   display: flex;
-  /* Centre on both axes. `margin: auto` on the SVG alone leaves it top-weighted
-     once the pane is taller than the diagram, which the lightbox always is. */
-  align-items: center;
-  justify-content: center;
 }
-.c4-playground__canvas svg { max-width: 100%; height: auto; }
+
+/* Centred with auto margins, never `justify-content`/`align-items: center`.
+   Those centre the overflow too: a diagram wider than the pane spills equally
+   left and right, and the left half cannot be scrolled to — the scroll origin
+   is the container's start edge, which the centring has already moved content
+   past. It reads as a diagram with its left side cut off and no way to reach
+   it, because that is exactly what it is.
+
+   Auto margins collapse to zero once there is no free space, so the same rule
+   centres a small diagram and lets a large one start at its true origin and
+   scroll. The child here is the renderer's own positioning wrapper, not the
+   <svg>: that wrapper is the flex item, which is why a `max-width` on the svg
+   never constrained anything. */
+.c4-playground__canvas > * { margin: auto; }
 
 /* Lightbox. The first attempt was inset:0 with no backdrop — a takeover, not a
    modal. The second used absolute + inset on the panel, which let the content

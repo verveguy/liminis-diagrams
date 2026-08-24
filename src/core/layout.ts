@@ -954,32 +954,69 @@ function layoutWithManualPositions(
   // Calculate edges using existing function
   const edges = calculateEdges(diagram.relationships, nodeMap);
 
-  // Calculate diagram bounding box (nodes may have negative coordinates
-  // when dragged past the top/left edge)
+  return { nodes: allNodes, edges, ...boundsFor(allNodes, edges) };
+}
+
+/**
+ * The viewBox and dimensions that actually contain the laid-out diagram.
+ *
+ * Shared by both layout paths, because they were only ever different by
+ * accident. The manual path always computed a real bounding box — dragging a
+ * node above or left of the origin produces negative coordinates, and the
+ * viewBox origin moves to cover them rather than shifting every node, which
+ * would desynchronise rendered positions from the positions a host persists.
+ *
+ * The auto path hardcoded `viewBoxX: 0, viewBoxY: 0` on the premise that dagre
+ * never emits negative coordinates. That premise was wrong, and documented as
+ * fact in data-model.md. Dagre's own output is non-negative, but the
+ * cross-boundary alignment pass that runs after it shifts elements outside a
+ * boundary to line up with their targets inside it, and that can move them left
+ * of the origin. The result was a `viewBox` starting at 0 with content at
+ * negative x: clipped, and unreachable by scrolling, because a viewBox is a
+ * window rather than a canvas. Four lines of C4 reproduce it — a Person outside
+ * a System_Boundary with a Rel to something inside.
+ *
+ * Edge points are included as well as node rects: an edge routed around a
+ * boundary can leave the union of the node rectangles.
+ *
+ * Diagrams that were already correct are unaffected. Where nothing sits within
+ * BOUNDARY_PADDING of the origin, `Math.min(0, …)` yields 0 and the width and
+ * height are what they were.
+ */
+function boundsFor(
+  nodes: LayoutNode[],
+  edges: LayoutEdge[]
+): Pick<LayoutResult, 'width' | 'height' | 'viewBoxX' | 'viewBoxY'> {
   let minX = Infinity;
   let minY = Infinity;
   let maxX = 0;
   let maxY = 0;
 
-  for (const node of allNodes) {
+  for (const node of nodes) {
     minX = Math.min(minX, node.x);
     minY = Math.min(minY, node.y);
     maxX = Math.max(maxX, node.x + node.width);
     maxY = Math.max(maxY, node.y + node.height);
   }
+  for (const edge of edges) {
+    for (const point of edge.points) {
+      minX = Math.min(minX, point.x);
+      minY = Math.min(minY, point.y);
+      maxX = Math.max(maxX, point.x);
+      maxY = Math.max(maxY, point.y);
+    }
+  }
 
-  // Use viewBox origin to handle negative coordinates instead of shifting
-  // nodes — this keeps stored positions and rendered positions in sync
+  // An empty diagram leaves the minima at Infinity; treat it as the origin.
+  if (!Number.isFinite(minX)) minX = 0;
+  if (!Number.isFinite(minY)) minY = 0;
+
   const viewBoxX = Math.min(0, minX - BOUNDARY_PADDING);
   const viewBoxY = Math.min(0, minY - BOUNDARY_PADDING);
-  const width = maxX + BOUNDARY_PADDING - viewBoxX;
-  const height = maxY + BOUNDARY_PADDING - viewBoxY;
 
   return {
-    nodes: allNodes,
-    edges,
-    width,
-    height,
+    width: maxX + BOUNDARY_PADDING - viewBoxX,
+    height: maxY + BOUNDARY_PADDING - viewBoxY,
     viewBoxX,
     viewBoxY,
   };
@@ -1045,27 +1082,7 @@ export function layoutC4Diagram(
   // Calculate edges
   const edges = calculateEdges(diagram.relationships, nodeMap);
 
-  // Calculate total diagram dimensions
-  let width = 0;
-  let height = 0;
-
-  for (const node of allNodes) {
-    width = Math.max(width, node.x + node.width);
-    height = Math.max(height, node.y + node.height);
-  }
-
-  // Add margin
-  width += BOUNDARY_PADDING;
-  height += BOUNDARY_PADDING;
-
-  const result: LayoutResult = {
-    nodes: allNodes,
-    edges,
-    width,
-    height,
-    viewBoxX: 0,
-    viewBoxY: 0,
-  };
+  const result: LayoutResult = { nodes: allNodes, edges, ...boundsFor(allNodes, edges) };
   roundGeometryInPlace(result);
   return result;
 }
