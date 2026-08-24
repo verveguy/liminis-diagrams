@@ -41,7 +41,11 @@ export default defineConfig({
         'C4 architecture diagrams for JavaScript: parse C4-PlantUML, lay out with dagre, render to SVG.',
       social: { github: 'https://github.com/verveguy/liminis-diagrams' },
       editLink: {
-        baseUrl: 'https://github.com/verveguy/liminis-diagrams/edit/main/docs/',
+        // Starlight appends the page's path *relative to src/content/docs* to
+        // this base, so the base must be the directory that collection actually
+        // lives in. Pointing it at docs/ produced an edit link for a path that
+        // does not exist, which 404s on github.com.
+        baseUrl: 'https://github.com/verveguy/liminis-diagrams/edit/main/docs/src/content/docs/',
       },
       sidebar: [
         {

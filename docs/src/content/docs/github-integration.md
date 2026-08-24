@@ -58,8 +58,14 @@ npx --package=@liminis/diagrams --package=react --package=react-dom -- \
 
 # Validate only — writes nothing, non-zero if anything fails to parse.
 npx --package=@liminis/diagrams --package=react --package=react-dom -- \
-  render-c4 --check docs/**/*.puml
+  render-c4 --check $(git ls-files '*.puml')
 ```
+
+`$(git ls-files …)` rather than a `**` glob: the CLI takes each argument as a
+literal path and does not expand globs itself, and `**` is inert in bash unless
+`globstar` is set — so `docs/**/*.puml` is liable to arrive as one nonexistent
+filename and fail with `ENOENT`. Letting git do the expansion also skips
+anything untracked or ignored, which is usually what you meant.
 
 ### Why react and react-dom are named on that command line
 

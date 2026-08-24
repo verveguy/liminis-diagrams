@@ -50,9 +50,13 @@ const LEGACY_IMG = new RegExp(`\\n?<img src="${OUT_REL}/[^"]+"[^>]*/>`, 'g')
 /** ```c4 [meta]\n …source… \n``` */
 const FENCE = /^```c4([^\n]*)\n([\s\S]*?)\n```$/gm
 
-let wrote = 0
-let stale = []
+// Counted separately because they are different things: one diagram produces
+// two SVGs (light and dark) and edits one page. A single total made the output
+// say "4 diagram(s)" for two of them.
 let diagrams = 0
+let svgsWritten = 0
+let pagesWritten = 0
+let stale = []
 
 const pages = readdirSync(DOCS).filter((f) => f.endsWith('.mdx') || f.endsWith('.md'))
 const expected = new Set()
@@ -105,7 +109,7 @@ for (const page of pages) {
         else {
           mkdirSync(OUT_DIR, { recursive: true })
           writeFileSync(target, svg)
-          wrote += 1
+          svgsWritten += 1
         }
       }
     }
@@ -129,7 +133,7 @@ for (const page of pages) {
     if (CHECK) stale.push(page)
     else {
       writeFileSync(path, out)
-      wrote += 1
+      pagesWritten += 1
     }
   }
 }
@@ -142,19 +146,26 @@ if (existsSync(OUT_DIR)) {
       if (CHECK) stale.push(`${OUT_REL}/${f} (orphaned)`)
       else {
         rmSync(join(OUT_DIR, f))
-        wrote += 1
+        svgsWritten += 1
       }
     }
   }
 }
 
-if (CHECK) {
+// A diagram that failed to render already set a non-zero exit code above. Say so
+// rather than going on to print a success line underneath the error, which reads
+// as though the failure did not count.
+if (process.exitCode) {
+  console.error('Some diagrams failed to render; nothing above is a clean result.')
+} else if (CHECK) {
   if (stale.length) {
     console.error('Diagrams are out of date. Run `pnpm diagrams` and commit the result:')
     for (const s of stale) console.error(`  ${s}`)
     process.exit(1)
   }
-  console.log(`All ${diagrams} diagram(s) up to date (${expected.size} files).`)
+  console.log(`All ${diagrams} diagram(s) up to date (${expected.size} SVGs).`)
 } else {
-  console.log(`${diagrams} diagram(s); ${wrote} of ${expected.size} file(s) written.`)
+  console.log(
+    `${diagrams} diagram(s): ${svgsWritten} SVG(s), ${pagesWritten} page(s) written.`,
+  )
 }
