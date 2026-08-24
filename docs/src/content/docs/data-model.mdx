@@ -155,14 +155,25 @@ coordinates you'd persist as "the manual position"), the layout step instead mov
 SVG `viewBox` origin to cover the negative space, leaving every node's stored `x`/`y`
 untouched.
 
-This only ever happens on the **manual-position path** — when you pass non-empty
-`manualPositions` to `layoutC4Diagram`. The **auto-layout path** (dagre, no manual
-positions) always returns `viewBoxX: 0, viewBoxY: 0` — dagre never produces negative
-coordinates, so there's nothing to compensate for. It is easy to write rendering code
-that assumes `viewBoxX`/`viewBoxY` are always `0` because that's true in every
-auto-layout diagram you test against, then have it break the first time a user drags a
-node above/left of the origin. Always read `viewBoxX`/`viewBoxY` from the `LayoutResult`
-and use them in your `<svg viewBox="...">`, rather than assuming `0 0`.
+It happens on **both** paths. The obvious case is the manual-position path, where a node
+dragged past the top or left edge lands at a negative coordinate. The less obvious case is
+the auto-layout path: dagre's own output is non-negative, but the cross-boundary alignment
+pass that runs after it shifts elements *outside* a boundary to line up with their targets
+inside it, and that can move them left of the origin. An element outside a
+`System_Boundary` with a `Rel` to something inside is enough.
+
+Always read `viewBoxX`/`viewBoxY` from the `LayoutResult` and use them in your
+`<svg viewBox="...">`, rather than assuming `0 0`.
+
+:::caution[This page used to say the opposite]
+Until 0.1.3 this section claimed the auto-layout path "always returns `viewBoxX: 0,
+viewBoxY: 0`" because "dagre never produces negative coordinates". That was wrong, and
+the library believed it too: `layoutC4Diagram` hardcoded a zero origin on the auto path,
+so any diagram with an element outside a boundary rendered with its left side clipped —
+unreachable, because a `viewBox` is a window rather than a canvas. Both paths now compute
+a real bounding box. If you pinned 0.1.2 or earlier and render your own SVG, the
+`viewBoxX` you are reading may be understating the diagram.
+:::
 
 **Verified**, both paths, same diagram:
 
@@ -170,7 +181,14 @@ and use them in your `<svg viewBox="...">`, rather than assuming `0 0`.
 const { diagram } = parseC4(`Person(user, "User")\nSystem(app, "App")\nRel(user, app, "Uses")`);
 
 layoutC4Diagram(diagram);
-// viewBoxX: 0, viewBoxY: 0   (auto layout — always zero)
+// viewBoxX: 0, viewBoxY: 0   (auto layout — zero *here*, because nothing in this
+//                             diagram lands near the origin; not a guarantee)
+
+const { diagram: crossing } = parseC4(
+  `Person(u, "You")\nSystem_Boundary(b, "Boundary") {\n  Container(c, "Inner")\n}\nRel(u, c, "Uses")`,
+);
+layoutC4Diagram(crossing);
+// viewBoxX: -50, viewBoxY: 0   (auto layout, element outside a boundary pushed left)
 
 layoutC4Diagram(diagram, undefined, { user: { x: -100, y: -50 }, app: { x: 200, y: 200 } });
 // viewBoxX: -140, viewBoxY: -90   (manual layout, negative position dragged in)
