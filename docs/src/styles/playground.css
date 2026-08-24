@@ -117,10 +117,9 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-/* The readout doubles as the reset control, so it is disabled at 100% rather
-   than hidden — a control that vanishes when it does nothing is a control the
-   reader has to rediscover. */
-.c4-playground__zoom button:disabled { opacity: 0.45; cursor: default; }
+/* The readout doubles as the reset control, disabled at 100% rather than
+   hidden — a control that vanishes when it does nothing is one the reader has
+   to rediscover. Disabled styling comes from the bar's own button rule. */
 
 .c4-playground__expand {
   margin-left: 0.25rem;

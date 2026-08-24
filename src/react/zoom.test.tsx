@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { C4InteractiveRenderer } from './C4InteractiveRenderer';
+import { normaliseZoom } from './renderer';
 import { parseC4 } from '../core/parser';
 
 /**
@@ -62,5 +63,29 @@ describe('zoom', () => {
   it('scales down as well as up', () => {
     const actual = renderAt(1);
     expect(renderAt(0.5).width).toBeCloseTo(actual.width / 2);
+  });
+
+  // `width`/`height` are attributes on a public entry point: whatever a host
+  // passes reaches the DOM. NaN is the realistic one — an uninitialised state
+  // variable, or a division that went wrong — and it renders nothing at all,
+  // with no error to explain why.
+  describe('a bad factor cannot produce an invalid SVG', () => {
+    for (const bad of [0, -1, -0.5, NaN, Infinity, -Infinity]) {
+      it(`falls back to actual size for ${String(bad)}`, () => {
+        expect(normaliseZoom(bad)).toBe(1);
+        expect(renderAt(bad as number)).toEqual(renderAt(1));
+      });
+    }
+
+    it('clamps rather than asking a browser to lay out a mile of SVG', () => {
+      expect(normaliseZoom(1e6)).toBe(50);
+      expect(normaliseZoom(1e-6)).toBe(0.05);
+    });
+
+    it('leaves ordinary factors exactly as given', () => {
+      for (const good of [0.05, 0.5, 1, 2.5, 50]) {
+        expect(normaliseZoom(good)).toBe(good);
+      }
+    });
   });
 });

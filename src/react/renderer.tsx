@@ -987,6 +987,25 @@ function renderNode(node: LayoutNode, colors: Colors, allNodes: LayoutNode[], pa
 // MAIN COMPONENT
 // =============================================================================
 
+/**
+ * A zoom factor that cannot produce an invalid SVG.
+ *
+ * `width`/`height` are attributes on a public entry point, so whatever a host
+ * passes ends up in the DOM. `0` collapses the diagram, a negative number is
+ * invalid, and `NaN` — the likely one, arriving from an uninitialised state
+ * variable or a division — renders nothing at all with no error to explain it.
+ * Anything that is not a positive finite number falls back to actual size.
+ *
+ * The upper bound is a guard against a browser being asked to lay out a
+ * hundred-thousand-pixel SVG, not a considered maximum; the lower bound is the
+ * point past which a diagram is a smudge. A host wanting more can scale the
+ * container.
+ */
+export function normaliseZoom(zoom: number): number {
+  if (!Number.isFinite(zoom) || zoom <= 0) return 1;
+  return Math.min(Math.max(zoom, 0.05), 50);
+}
+
 export interface C4RendererProps {
   /** Layout result from the layout engine */
   layout: LayoutResult;
@@ -1008,6 +1027,7 @@ export interface C4RendererProps {
  * Used directly in the editor and via renderToStaticMarkup for publishing.
  */
 export function C4Renderer({ layout, isDarkMode, zoom = 1 }: C4RendererProps): JSX.Element {
+  const scale = normaliseZoom(zoom);
   const colors = getColors(isDarkMode);
 
   const boundaryNodes = layout.nodes.filter(
@@ -1039,8 +1059,8 @@ export function C4Renderer({ layout, isDarkMode, zoom = 1 }: C4RendererProps): J
 
   return (
     <svg
-      width={totalWidth * zoom}
-      height={totalHeight * zoom}
+      width={totalWidth * scale}
+      height={totalHeight * scale}
       viewBox={`${layout.viewBoxX} ${layout.viewBoxY} ${totalWidth} ${totalHeight}`}
       xmlns="http://www.w3.org/2000/svg"
       data-diagram="c4"

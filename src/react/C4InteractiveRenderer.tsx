@@ -12,7 +12,7 @@
 // unresolvable `JSX.Element`. Importing the namespace keeps it local.
 import type { JSX } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { C4RendererContent, computeLegendInfo } from './renderer';
+import { C4RendererContent, computeLegendInfo, normaliseZoom } from './renderer';
 import { layoutC4Diagram } from '../core/layout';
 import type { LayoutResult, LayoutNode, C4Diagram, C4Element } from '../core/types';
 import { useC4DiagramDrag } from './hooks/useC4DiagramDrag';
@@ -370,6 +370,9 @@ function C4InteractiveSvg({
   legendPositionOverride,
   zoom,
 }: C4InteractiveSvgProps): JSX.Element {
+  // Guarded here as well as in C4Renderer: both are public entry points, and a
+  // host reaching this one never passes through the other.
+  const scale = normaliseZoom(zoom);
   // Get colors based on theme
   const handleColor = isDarkMode ? '#a0a0a0' : '#505050';
 
@@ -434,8 +437,8 @@ function C4InteractiveSvg({
       {/* Base renderer - use full rendered size including legend */}
       <svg
         ref={svgRef}
-        width={svgWidth * zoom}
-        height={svgHeight * zoom}
+        width={svgWidth * scale}
+        height={svgHeight * scale}
         viewBox={`${layout.viewBoxX} ${layout.viewBoxY} ${svgWidth} ${svgHeight}`}
         xmlns="http://www.w3.org/2000/svg"
         data-diagram="c4"
