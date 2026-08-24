@@ -43,9 +43,52 @@ const ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 // suffix are both part of what npm matches against the OIDC claim, so both are
 // part of the expected value rather than checked separately.
 const EXPECTED_REPO_URL = 'git+https://github.com/verveguy/liminis-diagrams.git'
-const ENTRY_POINTS = ['.', './core', './react', './playground', './server']
-/** Entries that must work with no React installed. */
-const REACT_FREE_ENTRIES = ['.', './core']
+const ENTRY_POINTS = ['.', './core', './react', './playground', './remark', './server']
+/**
+ * Entries that must work with no React installed, each with a probe that
+ * actually exercises it.
+ *
+ * A probe per entry rather than one shared snippet: these export different
+ * things, and importing a name an entry never had would fail for the wrong
+ * reason — reporting "does not provide an export named …" as though React were
+ * the problem.
+ *
+ * ./remark is here because it runs in Node during a host's build, long before
+ * any React exists. A build-time plugin reaching for a UI library would be a
+ * defect, and this is the check that would notice.
+ */
+const REACT_FREE_ENTRIES = [
+  {
+    entry: '.',
+    what: 'parses and lays out',
+    probe: `import { parseC4, layoutC4Diagram } from '%s';
+       const p = parseC4('Person(u,"U")\\nSystem(a,"A")\\nRel(u,a,"Uses")');
+       if (p.errors.length) throw new Error('parse errors: ' + JSON.stringify(p.errors));
+       const l = layoutC4Diagram(p.diagram);
+       if (l.nodes.length !== 2 || l.edges.length !== 1) throw new Error('unexpected layout');
+       console.log('ok');`,
+  },
+  {
+    entry: './core',
+    what: 'parses and lays out',
+    probe: `import { parseC4, layoutC4Diagram } from '%s';
+       const p = parseC4('Person(u,"U")\\nSystem(a,"A")\\nRel(u,a,"Uses")');
+       if (p.errors.length) throw new Error('parse errors: ' + JSON.stringify(p.errors));
+       const l = layoutC4Diagram(p.diagram);
+       if (l.nodes.length !== 2 || l.edges.length !== 1) throw new Error('unexpected layout');
+       console.log('ok');`,
+  },
+  {
+    entry: './remark',
+    what: 'transforms a fence',
+    probe: `import { remarkC4 } from '%s';
+       const tree = { type: 'root', children: [{ type: 'code', lang: 'c4', value: 'Person(u,"U")' }] };
+       remarkC4()(tree);
+       if (!tree.children.some((c) => c.type === 'mdxJsxFlowElement')) throw new Error('no island produced');
+       if (!tree.children.some((c) => c.type === 'mdxjsEsm')) throw new Error('no import injected');
+       console.log('ok');`,
+  },
+]
 
 let failures = 0
 const pass = (msg) => console.log(`  \x1b[32mok\x1b[0m    ${msg}`)
@@ -204,24 +247,11 @@ try {
   // The central claim: these entries must work with React absent. Importing is
   // the only honest proof -- a static import graph check would not catch a
   // transitive require.
-  for (const entry of REACT_FREE_ENTRIES) {
+  for (const { entry, what, probe } of REACT_FREE_ENTRIES) {
     const spec = entry === '.' ? '@liminis/diagrams' : `@liminis/diagrams/${entry.slice(2)}`
     try {
-      const out = run(
-        'node',
-        [
-          '--input-type=module',
-          '-e',
-          `import { parseC4, layoutC4Diagram } from '${spec}';
-           const p = parseC4('Person(u,"U")\\nSystem(a,"A")\\nRel(u,a,"Uses")');
-           if (p.errors.length) throw new Error('parse errors: ' + JSON.stringify(p.errors));
-           const l = layoutC4Diagram(p.diagram);
-           if (l.nodes.length !== 2 || l.edges.length !== 1) throw new Error('unexpected layout');
-           console.log('ok');`,
-        ],
-        scratch,
-      )
-      if (out.includes('ok')) pass(`${spec} parses and lays out with no React installed`)
+      const out = run('node', ['--input-type=module', '-e', probe.replaceAll('%s', spec)], scratch)
+      if (out.includes('ok')) pass(`${spec} ${what} with no React installed`)
       else fail(`${spec} works with no React installed`, out)
     } catch (err) {
       fail(`${spec} works with no React installed`, err.stderr || err.message)

@@ -53,6 +53,10 @@
       "default": "./dist/playground.js"
     },
     "./playground.css": "./dist/playground/playground.css",
+    "./remark": {
+      "types": "./dist/remark.d.ts",
+      "default": "./dist/remark.js"
+    },
     "./server": {
       "types": "./dist/server.d.ts",
       "default": "./dist/server.js"
