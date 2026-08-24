@@ -73,7 +73,7 @@ describe('zoom', () => {
     for (const bad of [0, -1, -0.5, NaN, Infinity, -Infinity]) {
       it(`falls back to actual size for ${String(bad)}`, () => {
         expect(normaliseZoom(bad)).toBe(1);
-        expect(renderAt(bad as number)).toEqual(renderAt(1));
+        expect(renderAt(bad)).toEqual(renderAt(1));
       });
     }
 
